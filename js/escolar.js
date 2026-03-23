@@ -5,7 +5,7 @@
  * Likes y comentarios en Firestore
  */
 
-const CLOUDINARY_CLOUD  = 'dwjzn6n0a';
+const CLOUDINARY_CLOUD = 'dwjzn6n0a';
 const CLOUDINARY_PRESET = 'escolar_unsigned';
 const DELETE_FUNCTION_URL = 'https://gilded-kataifi-894a8b.netlify.app/.netlify/functions/delete-photo';
 const ADMIN_PIN = '1234'; // ← cambia por tu PIN secreto
@@ -13,19 +13,19 @@ const ADMIN_PIN = '1234'; // ← cambia por tu PIN secreto
 /* ════════════════════════════════════════════════════════
    ESTADO
 ════════════════════════════════════════════════════════ */
-let GRUPOS   = [];
+let GRUPOS = [];
 let GALERIAS = [];
-let currentGaleria    = null;
+let currentGaleria = null;
 let currentPhotoIndex = 0;
-let likedPhotos       = new Set(JSON.parse(localStorage.getItem('escolar_liked') || '[]'));
-let selectedFiles     = [];
-let commentListeners  = {};
+let likedPhotos = new Set(JSON.parse(localStorage.getItem('escolar_liked') || '[]'));
+let selectedFiles = [];
+let commentListeners = {};
 let currentCommentsId = null;
-let pendingGroupId    = null;
-let selectedEmoji     = '📚';
-let selectedGroupEmoji= '📁';
-let pinCallback       = null;
-let pinEntrado        = '';
+let pendingGroupId = null;
+let selectedEmoji = '📚';
+let selectedGroupEmoji = '📁';
+let pinCallback = null;
+let pinEntrado = '';
 let isPanning = false, startX = 0, startY = 0, panX = 0, panY = 0, startPX = 0, startPY = 0;
 let currentZoom = 1;
 const MIN_ZOOM = 1, MAX_ZOOM = 3, ZOOM_STEP = 0.25;
@@ -75,7 +75,7 @@ async function eliminarGrupoFirebase(id) {
     await Promise.all(promesas);
     await deleteDoc(doc(db, 'fa_grupos', id));
     console.log('Grupo eliminado:', id);
-  } catch(e) {
+  } catch (e) {
     console.error('Error eliminando grupo:', e);
     alert('Error al eliminar: ' + e.message);
   }
@@ -111,7 +111,7 @@ async function eliminarGaleriaFirebase(id) {
   try {
     await deleteDoc(doc(getDB(), 'fa_galerias', id));
     console.log('Materia eliminada:', id);
-  } catch(e) {
+  } catch (e) {
     console.error('Error eliminando materia:', e);
     alert('Error al eliminar: ' + e.message);
   }
@@ -120,63 +120,63 @@ async function eliminarGaleriaFirebase(id) {
 /* ════════════════════════════════════════════════════════
    DOM
 ════════════════════════════════════════════════════════ */
-const albumsSection     = document.getElementById('albumsSection');
-const groupsContainer   = document.getElementById('groupsContainer');
-const emptyState        = document.getElementById('emptyState');
-const gallerySection    = document.getElementById('gallerySection');
-const galleryTitle      = document.getElementById('galleryTitle');
-const photosGrid        = document.getElementById('photosGrid');
-const btnBack           = document.getElementById('btnBack');
-const btnUploadTop      = document.getElementById('btnUploadTop');
-const uploadZone        = document.getElementById('uploadZone');
-const dropArea          = document.getElementById('dropArea');
-const fileInput         = document.getElementById('fileInput');
-const cameraInput       = document.getElementById('cameraInput');
-const uploadCaption     = document.getElementById('uploadCaption');
-const btnUploadSend     = document.getElementById('btnUploadSend');
+const albumsSection = document.getElementById('albumsSection');
+const groupsContainer = document.getElementById('groupsContainer');
+const emptyState = document.getElementById('emptyState');
+const gallerySection = document.getElementById('gallerySection');
+const galleryTitle = document.getElementById('galleryTitle');
+const photosGrid = document.getElementById('photosGrid');
+const btnBack = document.getElementById('btnBack');
+const btnUploadTop = document.getElementById('btnUploadTop');
+const uploadZone = document.getElementById('uploadZone');
+const dropArea = document.getElementById('dropArea');
+const fileInput = document.getElementById('fileInput');
+const cameraInput = document.getElementById('cameraInput');
+const uploadCaption = document.getElementById('uploadCaption');
+const btnUploadSend = document.getElementById('btnUploadSend');
 const uploadPreviewList = document.getElementById('uploadPreviewList');
-const uploadProgress    = document.getElementById('uploadProgress');
+const uploadProgress = document.getElementById('uploadProgress');
 const uploadProgressBar = document.getElementById('uploadProgressBar');
-const uploadProgressText= document.getElementById('uploadProgressText');
-const lightbox          = document.getElementById('lightbox');
-const lightboxImg       = document.getElementById('lightboxImg');
-const lightboxCaption   = document.getElementById('lightboxCaption');
-const lightboxClose     = document.getElementById('lightboxClose');
-const lightboxPrev      = document.getElementById('lightboxPrev');
-const lightboxNext      = document.getElementById('lightboxNext');
-const commentsModal     = document.getElementById('commentsModal');
-const commentsClose     = document.getElementById('commentsClose');
-const commentsTitleEl   = document.getElementById('commentsTitleEl');
-const commentsList      = document.getElementById('commentsList');
-const commentsForm      = document.getElementById('commentsForm');
-const commentsAuthor    = document.getElementById('commentsAuthor');
-const commentsText      = document.getElementById('commentsText');
-const newGroupModal     = document.getElementById('newGroupModal');
-const newGroupClose     = document.getElementById('newGroupClose');
-const newGroupCancel    = document.getElementById('newGroupCancel');
-const newGroupConfirm   = document.getElementById('newGroupConfirm');
-const groupNameInput    = document.getElementById('groupNameInput');
-const groupEmojiPicker  = document.getElementById('groupEmojiPicker');
-const newGalleryModal   = document.getElementById('newGalleryModal');
-const newGalleryClose   = document.getElementById('newGalleryClose');
-const newGalleryCancel  = document.getElementById('newGalleryCancel');
+const uploadProgressText = document.getElementById('uploadProgressText');
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = document.getElementById('lightboxImg');
+const lightboxCaption = document.getElementById('lightboxCaption');
+const lightboxClose = document.getElementById('lightboxClose');
+const lightboxPrev = document.getElementById('lightboxPrev');
+const lightboxNext = document.getElementById('lightboxNext');
+const commentsModal = document.getElementById('commentsModal');
+const commentsClose = document.getElementById('commentsClose');
+const commentsTitleEl = document.getElementById('commentsTitleEl');
+const commentsList = document.getElementById('commentsList');
+const commentsForm = document.getElementById('commentsForm');
+const commentsAuthor = document.getElementById('commentsAuthor');
+const commentsText = document.getElementById('commentsText');
+const newGroupModal = document.getElementById('newGroupModal');
+const newGroupClose = document.getElementById('newGroupClose');
+const newGroupCancel = document.getElementById('newGroupCancel');
+const newGroupConfirm = document.getElementById('newGroupConfirm');
+const groupNameInput = document.getElementById('groupNameInput');
+const groupEmojiPicker = document.getElementById('groupEmojiPicker');
+const newGalleryModal = document.getElementById('newGalleryModal');
+const newGalleryClose = document.getElementById('newGalleryClose');
+const newGalleryCancel = document.getElementById('newGalleryCancel');
 const newGalleryConfirm = document.getElementById('newGalleryConfirm');
-const galleryName       = document.getElementById('galleryName');
-const galleryTag        = document.getElementById('galleryTag');
-const galleryGroupSelect= document.getElementById('galleryGroupSelect');
-const emojiPicker       = document.getElementById('emojiPicker');
-const btnNewGroup       = document.getElementById('btnNewGroup');
-const btnNewGallery     = document.getElementById('btnNewGallery');
-const pinModal          = document.getElementById('pinModal');
-const pinDotsContainer  = document.getElementById('pinDotsContainer');
-const pinError          = document.getElementById('pinError');
-const pinCancelBtn      = document.getElementById('pinCancelBtn');
+const galleryName = document.getElementById('galleryName');
+const galleryTag = document.getElementById('galleryTag');
+const galleryGroupSelect = document.getElementById('galleryGroupSelect');
+const emojiPicker = document.getElementById('emojiPicker');
+const btnNewGroup = document.getElementById('btnNewGroup');
+const btnNewGallery = document.getElementById('btnNewGallery');
+const pinModal = document.getElementById('pinModal');
+const pinDotsContainer = document.getElementById('pinDotsContainer');
+const pinError = document.getElementById('pinError');
+const pinCancelBtn = document.getElementById('pinCancelBtn');
 
 /* ════════════════════════════════════════════════════════
    EMOJIS
 ════════════════════════════════════════════════════════ */
-const EMOJIS_MATERIA = ['📚','📐','🧮','🔬','🌍','⚗️','📖','✏️','💡','🧠','📊','🎨','🏃','🎶','💻','📝','🌿','⭐','🧬','🏛️'];
-const EMOJIS_GRUPO   = ['📁','🗂️','📦','🎓','📅','🏫','⭐','🌟','📌','🔖','🗓️','🌈','🎯','🏆','💼'];
+const EMOJIS_MATERIA = ['📚', '📐', '🧮', '🔬', '🌍', '⚗️', '📖', '✏️', '💡', '🧠', '📊', '🎨', '🏃', '🎶', '💻', '📝', '🌿', '⭐', '🧬', '🏛️'];
+const EMOJIS_GRUPO = ['📁', '🗂️', '📦', '🎓', '📅', '🏫', '⭐', '🌟', '📌', '🔖', '🗓️', '🌈', '🎯', '🏆', '💼'];
 
 function renderEmojiPickerEn(container, emojis, current, onSelect) {
   container.innerHTML = emojis.map(e =>
@@ -244,7 +244,7 @@ function renderTodo() {
 
   GRUPOS.forEach(grupo => {
     const materias = GALERIAS.filter(g => g.groupId === grupo.id);
-    const isOpen   = grupo.open !== false;
+    const isOpen = grupo.open !== false;
     // Buscar imagen de portada del primer álbum del grupo
     const primeraCover = materias.find(m => m.coverImage)?.coverImage || '';
     html += `
@@ -268,8 +268,8 @@ function renderTodo() {
           <div class="carousel-wrap">
             <div class="albums-carousel">
               ${materias.length === 0
-                ? `<p class="carousel-empty">Sin materias aún.</p>`
-                : materias.map(m => albumCardHTML(m)).join('')}
+        ? `<p class="carousel-empty">Sin materias aún.</p>`
+        : materias.map(m => albumCardHTML(m)).join('')}
             </div>
           </div>
           <button class="btn-add-to-group" data-group-id="${grupo.id}">
@@ -301,9 +301,9 @@ function albumCardHTML(g) {
       <article class="album-card" data-id="${g.id}" tabindex="0">
         <div class="album-cover">
           ${g.coverImage
-            ? `<img src="${g.coverImage}" alt="${escHtml(g.name)}" loading="lazy"
+      ? `<img src="${g.coverImage}" alt="${escHtml(g.name)}" loading="lazy"
                  onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
-            : ''}
+      : ''}
           <span class="album-icon" style="${g.coverImage ? 'display:none' : ''}">${g.icon}</span>
         </div>
         <div class="album-info">
@@ -327,7 +327,7 @@ function attachGroupEvents() {
     header.addEventListener('click', e => {
       if (e.target.closest('.group-delete')) return;
       const acc = header.closest('.group-accordion');
-      const id  = acc.dataset.groupId;
+      const id = acc.dataset.groupId;
       acc.classList.toggle('open');
       const isOpen = acc.classList.contains('open');
       toggleGrupoOpen(id, isOpen);
@@ -337,7 +337,7 @@ function attachGroupEvents() {
   groupsContainer.querySelectorAll('.group-delete').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      const id    = btn.dataset.groupId;
+      const id = btn.dataset.groupId;
       const grupo = GRUPOS.find(g => g.id === id);
       pedirPin(`Eliminar grupo "${grupo?.name}"`, async () => {
         await eliminarGrupoFirebase(id);
@@ -361,7 +361,7 @@ function attachGroupEvents() {
   groupsContainer.querySelectorAll('.materia-delete').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      const id      = btn.dataset.id;
+      const id = btn.dataset.id;
       const materia = GALERIAS.find(g => g.id === id);
       pedirPin(`Eliminar materia "${materia?.name}"`, async () => {
         await eliminarGaleriaFirebase(id);
@@ -409,9 +409,9 @@ async function cargarFotosDeGaleria(galeria) {
     const data = await r.json();
     if (!data.resources || data.resources.length === 0) { galeria.photos = []; return; }
     galeria.photos = data.resources.map(f => ({
-      src:      `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/upload/v${f.version}/${f.public_id}.${f.format}`,
-      caption:  f.context?.custom?.caption || '',
-      id:       f.public_id.replace(/\//g, '_'),
+      src: `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/upload/v${f.version}/${f.public_id}.${f.format}`,
+      caption: f.context?.custom?.caption || '',
+      id: f.public_id.replace(/\//g, '_'),
       publicId: f.public_id,
     }));
     // Actualizar coverImage en Firestore si no tiene
@@ -420,7 +420,7 @@ async function cargarFotosDeGaleria(galeria) {
       await updateDoc(doc(getDB(), 'fa_galerias', galeria.id), { coverImage: galeria.photos[0].src });
       galeria.coverImage = galeria.photos[0].src;
     }
-  } catch(e) {
+  } catch (e) {
     galeria.photos = galeria.photos || [];
   }
 }
@@ -455,7 +455,7 @@ function closeGaleria() {
   gallerySection.classList.remove('visible');
   uploadZone.classList.remove('open');
   currentGaleria = null;
-  selectedFiles  = [];
+  selectedFiles = [];
   uploadPreviewList.innerHTML = '';
   btnUploadSend.disabled = true;
 }
@@ -485,7 +485,7 @@ function renderPhotos() {
           <span class="like-count" id="likes-${p.id}">0</span>
         </button>
         <button class="btn-comments" data-src="${p.src}" data-caption="${escHtml(p.caption)}">
-          💬 ${p.caption ? escHtml(p.caption.length > 12 ? p.caption.slice(0,12)+'…' : p.caption) : 'Notas'}
+          💬 ${p.caption ? escHtml(p.caption.length > 12 ? p.caption.slice(0, 12) + '…' : p.caption) : 'Notas'}
         </button>
         <button class="btn-delete-photo" data-publicid="${p.publicId}" data-src="${p.src}" title="Eliminar foto">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -506,7 +506,9 @@ function renderPhotos() {
     btn.addEventListener('click', () => openComments(btn.dataset.src, btn.dataset.caption)));
   photosGrid.querySelectorAll('.btn-delete-photo').forEach(btn => {
     btn.addEventListener('click', () => {
-      pedirPin('Eliminar esta foto', () => eliminarFoto(btn.dataset.publicid, btn.dataset.src));
+      if (confirm("¿Seguro que quieres eliminar esta foto?")) {
+        eliminarFoto(btn.dataset.publicid, btn.dataset.src);
+      }
     });
   });
 }
@@ -516,18 +518,18 @@ function renderPhotos() {
 ════════════════════════════════════════════════════════ */
 async function eliminarFoto(publicId, src) {
   console.log("1. Iniciando eliminación para la foto:", publicId);
-  
+
   const btn = photosGrid.querySelector(`[data-publicid="${publicId}"]`);
   if (btn) btn.textContent = '⏳';
 
   const cloudName = 'dwjzn6n0a';
-  const apiKey    = '658928118369874';
-  const apiSecret = 'wyCuV2e8I9co9Ur2dq1K2hAx_N4'; 
+  const apiKey = '658928118369874';
+  const apiSecret = 'wyCuV2e8I9co9Ur2dq1K2hAx_N4';
 
   const timestamp = Math.round(new Date().getTime() / 1000);
   const stringToSign = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
   console.log("2. Todo listo para firmar seguridad");
-  
+
   try {
     const encoder = new TextEncoder();
     const data = encoder.encode(stringToSign);
@@ -547,7 +549,7 @@ async function eliminarFoto(publicId, src) {
       method: 'POST',
       body: formData
     });
-    
+
     const dataRes = await res.json();
     console.log("5. Respuesta exacta de Cloudinary:", dataRes);
 
@@ -559,20 +561,20 @@ async function eliminarFoto(publicId, src) {
     if (currentGaleria?.photos) {
       currentGaleria.photos = currentGaleria.photos.filter(p => p.src !== src);
     }
-    
+
     if (currentGaleria && currentGaleria.coverImage === src) {
       const newCover = currentGaleria.photos[0]?.src || '';
       const { doc, updateDoc } = getLib();
       await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: newCover });
     }
-    
+
     renderPhotos();
     alert("¡Foto eliminada correctamente!");
 
-  } catch(err) {
+  } catch (err) {
     console.error('7. ERROR DETECTADO:', err);
     alert('Fallo al eliminar. Revisa la consola. Detalle: ' + err.message);
-    renderPhotos(); 
+    renderPhotos();
   }
 }
 
@@ -580,11 +582,11 @@ async function eliminarFoto(publicId, src) {
    SUBIDA DE FOTOS
 ════════════════════════════════════════════════════════ */
 btnUploadTop.addEventListener('click', () => uploadZone.classList.toggle('open'));
-dropArea.addEventListener('dragover',  e => { e.preventDefault(); dropArea.classList.add('dragover'); });
+dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('dragover'); });
 dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
 dropArea.addEventListener('drop', e => { e.preventDefault(); dropArea.classList.remove('dragover'); addFiles([...e.dataTransfer.files]); });
 dropArea.addEventListener('click', e => { if (!e.target.closest('label')) fileInput.click(); });
-fileInput.addEventListener('change',   () => addFiles([...fileInput.files]));
+fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
 cameraInput.addEventListener('change', () => addFiles([...cameraInput.files]));
 
 function addFiles(files) {
@@ -602,8 +604,8 @@ function addFiles(files) {
 btnUploadSend.addEventListener('click', async () => {
   if (!selectedFiles.length || !currentGaleria) return;
   const caption = uploadCaption.value.trim();
-  const total   = selectedFiles.length;
-  let subidas   = 0;
+  const total = selectedFiles.length;
+  let subidas = 0;
   uploadProgress.style.display = 'block';
   btnUploadSend.disabled = true;
 
@@ -615,18 +617,18 @@ btnUploadSend.addEventListener('click', async () => {
     fd.append('folder', `FotoApuntes/${currentGaleria.cloudinaryTag}`);
     if (caption) fd.append('context', `caption=${caption}`);
     try {
-      const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: fd });
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: fd });
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
       subidas++;
-      uploadProgressBar.style.width  = Math.round((subidas / total) * 100) + '%';
+      uploadProgressBar.style.width = Math.round((subidas / total) * 100) + '%';
       uploadProgressText.textContent = `Subiendo ${subidas} de ${total}…`;
       // Actualizar coverImage si es la primera foto
       if (subidas === 1 && !currentGaleria.coverImage) {
         const { doc, updateDoc } = getLib();
         await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: data.secure_url });
       }
-    } catch(err) {
+    } catch (err) {
       uploadProgressText.textContent = `Error: ${err.message}`;
     }
   }
@@ -673,13 +675,13 @@ function applyZoom() {
   lightboxImg.style.cursor = currentZoom > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default';
 }
 lightboxClose.addEventListener('click', closeLightbox);
-lightboxPrev.addEventListener('click',  () => showPhoto(currentPhotoIndex - 1));
-lightboxNext.addEventListener('click',  () => showPhoto(currentPhotoIndex + 1));
+lightboxPrev.addEventListener('click', () => showPhoto(currentPhotoIndex - 1));
+lightboxNext.addEventListener('click', () => showPhoto(currentPhotoIndex + 1));
 lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
 document.addEventListener('keydown', e => {
   if (!lightbox.classList.contains('active')) return;
-  if (e.key === 'Escape')     closeLightbox();
-  if (e.key === 'ArrowLeft')  showPhoto(currentPhotoIndex - 1);
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowLeft') showPhoto(currentPhotoIndex - 1);
   if (e.key === 'ArrowRight') showPhoto(currentPhotoIndex + 1);
 });
 lightboxImg.addEventListener('wheel', e => {
@@ -688,7 +690,7 @@ lightboxImg.addEventListener('wheel', e => {
   const ox = e.clientX - (rect.left + rect.width / 2);
   const oy = e.clientY - (rect.top + rect.height / 2);
   const dir = e.deltaY < 0 ? 1 : -1;
-  const nz  = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom + dir * ZOOM_STEP));
+  const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom + dir * ZOOM_STEP));
   if (nz !== currentZoom) { const f = nz / currentZoom; panX = panX * f + ox * (1 - f); panY = panY * f + oy * (1 - f); currentZoom = nz; }
   applyZoom();
 });
@@ -707,7 +709,7 @@ async function loadLikes(photoId) {
     const snap = await getDoc(doc(getDB(), 'escolar_likes', 'p_' + photoId));
     const el = document.getElementById('likes-' + photoId);
     if (el) el.textContent = snap.exists() ? (snap.data().likes || 0) : 0;
-  } catch(e) {}
+  } catch (e) { }
 }
 async function toggleLike(photoId, btn) {
   if (!window._firestoreDb) return;
@@ -720,7 +722,7 @@ async function toggleLike(photoId, btn) {
     btn.querySelector('.heart').textContent = likedPhotos.has(photoId) ? '❤️' : '🤍';
     btn.classList.toggle('liked', likedPhotos.has(photoId));
     await loadLikes(photoId);
-  } catch(e) { console.error(e); }
+  } catch (e) { console.error(e); }
 }
 
 /* ════════════════════════════════════════════════════════
@@ -765,12 +767,12 @@ commentsForm.addEventListener('submit', async e => {
   if (!window._firestoreDb || !currentCommentsId) return;
   const { collection, addDoc, serverTimestamp } = getLib();
   const author = commentsAuthor.value.trim() || 'Yo';
-  const text   = commentsText.value.trim();
+  const text = commentsText.value.trim();
   if (!text) return;
   try {
     await addDoc(collection(getDB(), 'escolar_comments'), { photoId: currentCommentsId, author, text, createdAt: serverTimestamp() });
     commentsText.value = '';
-  } catch(err) { alert('No se pudo guardar la nota.'); }
+  } catch (err) { alert('No se pudo guardar la nota.'); }
 });
 
 /* ════════════════════════════════════════════════════════
@@ -801,7 +803,7 @@ newGroupConfirm.addEventListener('click', async () => {
 ════════════════════════════════════════════════════════ */
 function openNewGalleryModal(preGroupId) {
   galleryName.value = '';
-  galleryTag.value  = '';
+  galleryTag.value = '';
   selectedEmoji = EMOJIS_MATERIA[0];
   renderEmojiPickerEn(emojiPicker, EMOJIS_MATERIA, selectedEmoji, e => selectedEmoji = e);
   galleryGroupSelect.innerHTML =
@@ -828,8 +830,8 @@ galleryName.addEventListener('input', () => {
 });
 
 newGalleryConfirm.addEventListener('click', async () => {
-  const name    = galleryName.value.trim();
-  const tag     = galleryTag.value.trim().replace(/\s+/g, '_');
+  const name = galleryName.value.trim();
+  const tag = galleryTag.value.trim().replace(/\s+/g, '_');
   const groupId = galleryGroupSelect.value;
   if (!name || !tag) { alert('Por favor llena el nombre y el tag.'); return; }
   closeNewGalleryModal();
@@ -845,7 +847,7 @@ btnBack.addEventListener('click', closeGaleria);
    UTILS
 ════════════════════════════════════════════════════════ */
 function escHtml(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /* ════════════════════════════════════════════════════════
