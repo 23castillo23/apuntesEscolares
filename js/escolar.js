@@ -512,36 +512,63 @@ function renderPhotos() {
 }
 
 /* ════════════════════════════════════════════════════════
-   ELIMINAR FOTO
+   ELIMINAR FOTO (DIRECTO A CLOUDINARY - SIN NETLIFY)
 ════════════════════════════════════════════════════════ */
 async function eliminarFoto(publicId, src) {
   const btn = photosGrid.querySelector(`[data-publicid="${publicId}"]`);
-  if (btn) { btn.innerHTML = '⏳'; btn.disabled = true; }
+  if (btn) btn.textContent = '⏳';
+
+  // Tus credenciales directas
+  const cloudName = 'dwjzn6n0a';
+  const apiKey    = '658928118369874';
+  const apiSecret = 'wyCuV2e8I9co9Ur2dq1K2hAx_N4'; 
+
+  const timestamp = Math.round(new Date().getTime() / 1000);
+  const stringToSign = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+  
   try {
-    const res = await fetch(DELETE_FUNCTION_URL, {
+    // Hashear la firma con SHA-256 en el navegador
+    const encoder = new TextEncoder();
+    const data = encoder.encode(stringToSign);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const formData = new FormData();
+    formData.append('public_id', publicId);
+    formData.append('timestamp', timestamp);
+    formData.append('api_key', apiKey);
+    formData.append('signature', signature);
+
+    // Enviar orden directa a Cloudinary
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ publicId })
+      body: formData
     });
-    let data;
-    try { data = await res.json(); } catch(e) { throw new Error('Respuesta inválida del servidor (status ' + res.status + ')'); }
-    if (!res.ok || data.error) throw new Error(data.error || 'Error del servidor: ' + res.status);
-    // Eliminar de la lista local
-    if (currentGaleria?.photos) {
-      currentGaleria.photos = currentGaleria.photos.filter(p => p.publicId !== publicId && p.src !== src);
+    
+    const dataRes = await res.json();
+
+    if (!res.ok || dataRes.result !== 'ok') {
+      throw new Error(dataRes.error?.message || 'Error de Cloudinary');
     }
-    // Actualizar coverImage si era la portada
+
+    // Actualizar las fotos en la pantalla
+    if (currentGaleria?.photos) {
+      currentGaleria.photos = currentGaleria.photos.filter(p => p.src !== src);
+    }
+    
     if (currentGaleria && currentGaleria.coverImage === src) {
       const newCover = currentGaleria.photos[0]?.src || '';
       const { doc, updateDoc } = getLib();
       await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: newCover });
-      currentGaleria.coverImage = newCover;
     }
+    
     renderPhotos();
+
   } catch(err) {
-    console.error('[eliminarFoto]', err);
-    alert('No se pudo eliminar la foto:\n' + err.message + '\n\nRevisa que la función de Netlify esté desplegada y que el ALLOWED_ORIGIN coincida con tu dominio.');
-    renderPhotos();
+    console.error('Fallo al borrar:', err);
+    alert('No se pudo eliminar la foto: ' + err.message);
+    renderPhotos(); 
   }
 }
 
