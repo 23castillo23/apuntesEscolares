@@ -64,15 +64,21 @@ async function crearGrupo(name, icon) {
 }
 
 async function eliminarGrupoFirebase(id) {
-  const { doc, deleteDoc, collection, getDocs, query, where, writeBatch } = getLib();
+  const { doc, deleteDoc, collection, getDocs, query, where, updateDoc } = getLib();
   const db = getDB();
-  // Quitar groupId de materias que pertenecen a este grupo
-  const batch = writeBatch(db);
-  const q = query(collection(db, 'fa_galerias'), where('groupId', '==', id));
-  const snap = await getDocs(q);
-  snap.forEach(d => batch.update(d.ref, { groupId: '' }));
-  await batch.commit();
-  await deleteDoc(doc(db, 'fa_grupos', id));
+  try {
+    // Quitar groupId de materias que pertenecen a este grupo
+    const q = query(collection(db, 'fa_galerias'), where('groupId', '==', id));
+    const snap = await getDocs(q);
+    const promesas = [];
+    snap.forEach(d => promesas.push(updateDoc(d.ref, { groupId: '' })));
+    await Promise.all(promesas);
+    await deleteDoc(doc(db, 'fa_grupos', id));
+    console.log('Grupo eliminado:', id);
+  } catch(e) {
+    console.error('Error eliminando grupo:', e);
+    alert('Error al eliminar: ' + e.message);
+  }
 }
 
 async function toggleGrupoOpen(id, open) {
@@ -102,7 +108,13 @@ async function crearGaleria(name, icon, cloudinaryTag, groupId) {
 
 async function eliminarGaleriaFirebase(id) {
   const { doc, deleteDoc } = getLib();
-  await deleteDoc(doc(getDB(), 'fa_galerias', id));
+  try {
+    await deleteDoc(doc(getDB(), 'fa_galerias', id));
+    console.log('Materia eliminada:', id);
+  } catch(e) {
+    console.error('Error eliminando materia:', e);
+    alert('Error al eliminar: ' + e.message);
+  }
 }
 
 /* ════════════════════════════════════════════════════════

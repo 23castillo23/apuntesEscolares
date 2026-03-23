@@ -549,3 +549,164 @@ footer { position: relative; z-index: 1; text-align: center; padding: 2rem 1rem;
 @media (min-width: 900px) {
   .photos-grid { grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 1.2rem; }
 }
+
+/* ═══════════════════════════════════════
+   MEJORAS RESPONSIVE Y ZOOM — agregadas
+═══════════════════════════════════════ */
+
+/* Evitar que el zoom del navegador agrande toda la app */
+html {
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Tarjetas de foto más compactas y adaptativas */
+.photo-item {
+  border-radius: var(--radius-md);
+}
+.photo-item img {
+  height: 160px;
+  object-fit: cover;
+}
+
+/* Acciones de foto en una sola línea compacta */
+.photo-actions {
+  padding: .3rem .5rem;
+  gap: .2rem;
+}
+.photo-actions button {
+  font-size: .78rem;
+  padding: .15rem .25rem;
+}
+
+/* Carrusel de materias más compacto */
+.album-card-wrap {
+  flex: 0 0 170px;
+}
+.album-info {
+  padding: .8rem 1rem 1rem;
+}
+.album-name {
+  font-size: 1.1rem;
+}
+
+/* Header más compacto en móvil */
+@media (max-width: 480px) {
+  .header {
+    padding: 1.2rem 1rem 1rem;
+  }
+  .logo {
+    font-size: 1.8rem;
+  }
+  .tagline {
+    font-size: .75rem;
+  }
+  .section-title {
+    font-size: 1.2rem;
+  }
+  .section-header-btns {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .btn-new-group, .btn-new-gallery {
+    font-size: .75rem;
+    padding: .4rem .65rem;
+  }
+
+  /* Fotos en 2 columnas compactas */
+  .photos-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: .5rem;
+  }
+  .photo-item img {
+    height: 130px;
+  }
+
+  /* Carrusel de materias tamaño celular */
+  .album-card-wrap {
+    flex: 0 0 140px;
+  }
+  .album-cover {
+    aspect-ratio: 1/1;
+  }
+
+  /* Botones de galería */
+  .gallery-header {
+    gap: .5rem;
+  }
+  .btn-upload-top {
+    font-size: .78rem;
+    padding: .4rem .7rem;
+  }
+  .gallery-title {
+    font-size: 1.1rem;
+  }
+
+  /* Upload zone más compacta */
+  .upload-drop-area {
+    padding: 1.2rem .75rem;
+  }
+  .upload-meta {
+    flex-direction: column;
+  }
+  .upload-input {
+    min-width: 100%;
+  }
+
+  /* Acordeón de grupo */
+  .group-name {
+    font-size: 1rem;
+  }
+  .group-count {
+    font-size: .72rem;
+  }
+
+  /* PIN más compacto en móvil */
+  .pin-box {
+    padding: 1.2rem 1rem 1rem;
+    max-width: 290px;
+  }
+  .pin-key {
+    padding: .55rem;
+    font-size: 1.1rem;
+  }
+
+  /* Modales full width en móvil */
+  .modal-box {
+    padding: 1.25rem 1rem 1rem;
+    max-width: 100%;
+    margin: 0 .5rem;
+    border-radius: var(--radius-md);
+  }
+
+  /* Lightbox en móvil */
+  .lightbox-prev { left: .25rem; }
+  .lightbox-next { right: .25rem; }
+  .lightbox-close { top: .5rem; right: .5rem; }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .photos-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: .75rem;
+  }
+  .photo-item img {
+    height: 150px;
+  }
+  .album-card-wrap {
+    flex: 0 0 155px;
+  }
+}
+
+/* En escritorio máximo ancho del contenido */
+@media (min-width: 1200px) {
+  .main {
+    padding: 2rem 2rem 5rem;
+  }
+  .photos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+  .photo-item img {
+    height: 200px;
+  }
+}
