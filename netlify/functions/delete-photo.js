@@ -1,28 +1,25 @@
 /**
  * FotoApuntes — Función Netlify para eliminar fotos de Cloudinary
  * Archivo: netlify/functions/delete-photo.js
- *
- * Variables de entorno en Netlify (ya configuradas con tus datos):
- *   CLOUDINARY_CLOUD_NAME = dwjzn6n0a
- *   CLOUDINARY_API_KEY    = 658928118369874
- *   CLOUDINARY_API_SECRET = wyCuV2e8I9co9Ur2dq1K2hAx_N4
- *   ALLOWED_ORIGIN        = https://gilded-kataifi-894a8b.netlify.app
  */
 
 const https  = require('https');
 const crypto = require('crypto');
 
 exports.handler = async (event) => {
-  const origin = process.env.ALLOWED_ORIGIN || '*';
+  // Permitir cualquier origen si no está configurado (o el configurado)
+  const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
 
   const headers = {
-    'Access-Control-Allow-Origin':  origin,
+    'Access-Control-Allow-Origin':  allowedOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
   };
 
+  // Preflight CORS
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' };
+    return { statusCode: 204, headers, body: '' };
   }
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
@@ -30,12 +27,13 @@ exports.handler = async (event) => {
 
   let publicId;
   try {
-    ({ publicId } = JSON.parse(event.body));
+    const body = JSON.parse(event.body || '{}');
+    publicId = body.publicId;
   } catch {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body inválido' }) };
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Body JSON inválido' }) };
   }
-  if (!publicId) {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Falta publicId' }) };
+  if (!publicId || typeof publicId !== 'string' || publicId.trim() === '') {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'Falta publicId o está vacío' }) };
   }
 
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -43,13 +41,23 @@ exports.handler = async (event) => {
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
   if (!cloudName || !apiKey || !apiSecret) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Variables de entorno no configuradas' }) };
+    return {
+      statusCode: 500, headers,
+      body: JSON.stringify({ error: 'Variables de entorno de Cloudinary no configuradas en Netlify' })
+    };
   }
 
   const timestamp = Math.round(Date.now() / 1000);
+  // La firma debe incluir exactamente los parámetros que se envían (ordenados alfabéticamente)
   const toSign    = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
   const signature = crypto.createHash('sha256').update(toSign).digest('hex');
-  const formData  = `public_id=${encodeURIComponent(publicId)}&timestamp=${timestamp}&api_key=${apiKey}&signature=${signature}`;
+
+  const formData = new URLSearchParams({
+    public_id: publicId,
+    timestamp:  String(timestamp),
+    api_key:    apiKey,
+    signature:  signature,
+  }).toString();
 
   const result = await new Promise((resolve, reject) => {
     const req = https.request({
@@ -63,7 +71,10 @@ exports.handler = async (event) => {
     }, (res) => {
       let body = '';
       res.on('data', chunk => body += chunk);
-      res.on('end', () => { try { resolve(JSON.parse(body)); } catch { resolve({ result: 'error' }); } });
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); }
+        catch { resolve({ result: 'parse_error', raw: body }); }
+      });
     });
     req.on('error', reject);
     req.write(formData);
@@ -73,6 +84,7 @@ exports.handler = async (event) => {
   if (result.result === 'ok') {
     return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   } else {
-    return { statusCode: 400, headers, body: JSON.stringify({ error: result.error?.message || 'No se pudo eliminar' }) };
+    const msg = result.error?.message || result.result || 'No se pudo eliminar';
+    return { statusCode: 400, headers, body: JSON.stringify({ error: msg, detail: result }) };
   }
 };

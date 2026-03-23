@@ -245,13 +245,16 @@ function renderTodo() {
   GRUPOS.forEach(grupo => {
     const materias = GALERIAS.filter(g => g.groupId === grupo.id);
     const isOpen   = grupo.open !== false;
+    // Buscar imagen de portada del primer álbum del grupo
+    const primeraCover = materias.find(m => m.coverImage)?.coverImage || '';
     html += `
       <div class="group-accordion ${isOpen ? 'open' : ''}" data-group-id="${grupo.id}">
-        <div class="group-header">
+        <div class="group-header" data-group-id="${grupo.id}">
+          ${primeraCover ? `<div class="group-header-bg" style="background-image:url('${primeraCover}')"></div>` : ''}
           <span class="group-icon">${grupo.icon}</span>
           <span class="group-name">${escHtml(grupo.name)}</span>
           <span class="group-count">${materias.length} ${materias.length === 1 ? 'materia' : 'materias'}</span>
-          <button class="group-delete" data-group-id="${grupo.id}" title="Eliminar grupo">
+          <button class="group-delete" data-group-id="${grupo.id}" title="Mantén presionado para eliminar">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
               <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
@@ -342,6 +345,19 @@ function attachGroupEvents() {
     });
   });
 
+  // Long press en móvil para mostrar botones de eliminar
+  groupsContainer.querySelectorAll('.group-header').forEach(header => {
+    let pressTimer;
+    header.addEventListener('touchstart', () => {
+      pressTimer = setTimeout(() => {
+        header.classList.add('show-delete');
+        setTimeout(() => header.classList.remove('show-delete'), 3000);
+      }, 800);
+    });
+    header.addEventListener('touchend', () => clearTimeout(pressTimer));
+    header.addEventListener('touchmove', () => clearTimeout(pressTimer));
+  });
+
   groupsContainer.querySelectorAll('.materia-delete').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -351,6 +367,19 @@ function attachGroupEvents() {
         await eliminarGaleriaFirebase(id);
       });
     });
+  });
+
+  // Long press en tarjeta para mostrar eliminar en móvil
+  groupsContainer.querySelectorAll('.album-card-wrap').forEach(wrap => {
+    let pressTimer;
+    wrap.addEventListener('touchstart', () => {
+      pressTimer = setTimeout(() => {
+        wrap.classList.add('show-delete');
+        setTimeout(() => wrap.classList.remove('show-delete'), 3000);
+      }, 800);
+    });
+    wrap.addEventListener('touchend', () => clearTimeout(pressTimer));
+    wrap.addEventListener('touchmove', () => clearTimeout(pressTimer));
   });
 
   groupsContainer.querySelectorAll('.album-card').forEach(card => {
@@ -446,15 +475,17 @@ function renderPhotos() {
   }
   photosGrid.innerHTML = photos.map((p, i) => `
     <div class="photo-item" data-index="${i}">
-      <img src="${p.src}" alt="${escHtml(p.caption)}" loading="lazy">
-      ${p.caption ? `<div class="photo-caption-text">${escHtml(p.caption)}</div>` : ''}
+      <div class="photo-img-wrap">
+        <img src="${p.src}" alt="${escHtml(p.caption)}" loading="lazy">
+        ${p.caption ? `<div class="photo-caption-text">${escHtml(p.caption)}</div>` : ''}
+      </div>
       <div class="photo-actions">
         <button class="btn-like ${likedPhotos.has(p.id) ? 'liked' : ''}" data-id="${p.id}">
           <span class="heart">${likedPhotos.has(p.id) ? '❤️' : '🤍'}</span>
           <span class="like-count" id="likes-${p.id}">0</span>
         </button>
         <button class="btn-comments" data-src="${p.src}" data-caption="${escHtml(p.caption)}">
-          💬 Notas
+          💬 ${p.caption ? escHtml(p.caption.length > 12 ? p.caption.slice(0,12)+'…' : p.caption) : 'Notas'}
         </button>
         <button class="btn-delete-photo" data-publicid="${p.publicId}" data-src="${p.src}" title="Eliminar foto">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -465,7 +496,7 @@ function renderPhotos() {
       </div>
     </div>`).join('');
 
-  photosGrid.querySelectorAll('.photo-item img').forEach((img, i) =>
+  photosGrid.querySelectorAll('.photo-img-wrap img').forEach((img, i) =>
     img.addEventListener('click', () => openLightbox(i)));
   photosGrid.querySelectorAll('.btn-like').forEach(btn => {
     btn.addEventListener('click', () => toggleLike(btn.dataset.id, btn));
@@ -485,26 +516,31 @@ function renderPhotos() {
 ════════════════════════════════════════════════════════ */
 async function eliminarFoto(publicId, src) {
   const btn = photosGrid.querySelector(`[data-publicid="${publicId}"]`);
-  if (btn) btn.textContent = '⏳';
+  if (btn) { btn.innerHTML = '⏳'; btn.disabled = true; }
   try {
-    const res  = await fetch(DELETE_FUNCTION_URL, {
+    const res = await fetch(DELETE_FUNCTION_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ publicId })
     });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || 'Error del servidor');
+    let data;
+    try { data = await res.json(); } catch(e) { throw new Error('Respuesta inválida del servidor (status ' + res.status + ')'); }
+    if (!res.ok || data.error) throw new Error(data.error || 'Error del servidor: ' + res.status);
+    // Eliminar de la lista local
     if (currentGaleria?.photos) {
-      currentGaleria.photos = currentGaleria.photos.filter(p => p.src !== src);
+      currentGaleria.photos = currentGaleria.photos.filter(p => p.publicId !== publicId && p.src !== src);
     }
+    // Actualizar coverImage si era la portada
     if (currentGaleria && currentGaleria.coverImage === src) {
       const newCover = currentGaleria.photos[0]?.src || '';
       const { doc, updateDoc } = getLib();
       await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: newCover });
+      currentGaleria.coverImage = newCover;
     }
     renderPhotos();
   } catch(err) {
-    alert('No se pudo eliminar la foto: ' + err.message);
+    console.error('[eliminarFoto]', err);
+    alert('No se pudo eliminar la foto:\n' + err.message + '\n\nRevisa que la función de Netlify esté desplegada y que el ALLOWED_ORIGIN coincida con tu dominio.');
     renderPhotos();
   }
 }
