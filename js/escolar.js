@@ -503,6 +503,7 @@ btnUploadSend.addEventListener('click', async () => {
     fd.append('file', file);
     fd.append('upload_preset', CLOUDINARY_PRESET);
     fd.append('tags', currentGaleria.cloudinaryTag);
+    fd.append('folder', `FotoApuntes/${currentGaleria.cloudinaryTag}`);
     if (caption) fd.append('context', `caption=${caption}`);
     try {
       const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: fd });
