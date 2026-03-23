@@ -36,7 +36,7 @@ Ve a: Site settings → Environment variables → Add variable
 | CLOUDINARY_CLOUD_NAME   | dwjzn6n0a                    |
 | CLOUDINARY_API_KEY      | 658928118369874              |
 | CLOUDINARY_API_SECRET   | wyCuV2e8I9co9Ur2dq1K2hAx_N4 |
-| ALLOWED_ORIGIN          | https://TU-SITIO.netlify.app |
+| ALLOWED_ORIGIN          | https://gilded-kataifi-894a8b.netlify.app |
 
 ---
 

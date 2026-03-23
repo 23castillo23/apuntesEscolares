@@ -15,7 +15,7 @@ const CLOUDINARY_PRESET = 'escolar_unsigned';
 
 /* ── URL función Netlify ────────────────────────────── */
 /* ← CAMBIA ESTO cuando Netlify te dé tu URL            */
-const DELETE_FUNCTION_URL = 'https://TU-SITIO.netlify.app/.netlify/functions/delete-photo';
+const DELETE_FUNCTION_URL = 'https://gilded-kataifi-894a8b.netlify.app/.netlify/functions/delete-photo';
 
 /* ── PIN de administrador ───────────────────────────── */
 /* ← CAMBIA ESTO por tu PIN secreto                     */

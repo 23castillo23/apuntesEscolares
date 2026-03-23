@@ -23,7 +23,6 @@
 
   <main class="main">
 
-    <!-- Vista: grupos y materias -->
     <section class="albums-section" id="albumsSection">
       <div class="section-header">
         <h2 class="section-title">Mis Materias</h2>
@@ -47,7 +46,6 @@
       <div id="groupsContainer"></div>
     </section>
 
-    <!-- Vista: galería de fotos -->
     <section class="gallery-section" id="gallerySection">
       <div class="gallery-header">
         <button class="btn-back" id="btnBack">
@@ -190,7 +188,7 @@
     </div>
   </div>
 
-  <!-- FIREBASE -->
+  <!-- FIREBASE — proyecto fotoApuntes -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import {
@@ -199,12 +197,12 @@
     } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyAmBEW0LU38UFDCX5YjezljkSVlqO9PnhA",
-      authDomain: "albumfamiliar-af.firebaseapp.com",
-      projectId: "albumfamiliar-af",
-      storageBucket: "albumfamiliar-af.firebasestorage.app",
-      messagingSenderId: "907129615753",
-      appId: "1:907129615753:web:dbb4cd9cfec1bf23491d58"
+      apiKey:            "AIzaSyD8l2oPUs2FwwG72HlBQcLnRnc3ebw3dtk",
+      authDomain:        "fotoapuntes.firebaseapp.com",
+      projectId:         "fotoapuntes",
+      storageBucket:     "fotoapuntes.firebasestorage.app",
+      messagingSenderId: "355629825313",
+      appId:             "1:355629825313:web:4183c56dac087c2e3d1260"
     };
 
     const app = initializeApp(firebaseConfig);
