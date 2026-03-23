@@ -1,247 +1,222 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XV Años – Jennifer Arlete</title>
-
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="✦ Invitación · Jennifer Arlete · XV Años">
-    <meta property="og:description" content="Acompáñame a celebrar mis XV años. Toca aquí para ver tu pase personal.">
-    <meta property="og:image" content="https://cyber911zona.github.io/invitacionXV/img/preview-card.jpg">
-    <meta property="og:url" content="https://cyber911zona.github.io/invitacionXV/">
-    <meta name="theme-color" content="#0a0a14">
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Cinzel:wght@400;600;700&family=Great+Vibes&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FotoApuntes · Álbum Escolar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
 </head>
-
 <body>
-    <!-- Partículas de fondo -->
-    <canvas id="particleCanvas"></canvas>
 
-    <!-- Música -->
-    <audio id="bgMusic" loop>
-        <source src="mp3/PLHGo.mp3" type="audio/mpeg">
-    </audio>
+  <div class="bg-pattern"></div>
+  <div class="bg-gradient"></div>
 
-    <button id="musicToggle" class="music-btn" aria-label="Música">
-        <svg id="musicIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        <svg id="musicIconOff" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v9l12-2V7"/><path d="M9 18H6a3 3 0 0 0 0 6h3"/></svg>
-    </button>
-
-    <!-- ═══════════════ PASE DE ENTRADA ═══════════════ -->
-    <div class="scene" id="scene">
-
-        <div class="pass-wrap" id="passWrap">
-            <div class="pass-card">
-
-                <div class="pass-ornament top-ornament">
-                    <svg viewBox="0 0 300 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <line x1="0" y1="10" x2="120" y2="10" stroke="url(#goldGrad)" stroke-width="0.5"/>
-                        <circle cx="150" cy="10" r="6" stroke="url(#goldGrad)" stroke-width="0.8" fill="none"/>
-                        <circle cx="150" cy="10" r="2" fill="url(#goldGrad)"/>
-                        <path d="M130 10 L140 5 L150 10 L140 15 Z" stroke="url(#goldGrad)" stroke-width="0.6" fill="none"/>
-                        <path d="M170 10 L160 5 L150 10 L160 15 Z" stroke="url(#goldGrad)" stroke-width="0.6" fill="none"/>
-                        <line x1="180" y1="10" x2="300" y2="10" stroke="url(#goldGrad)" stroke-width="0.5"/>
-                        <defs>
-                            <linearGradient id="goldGrad" x1="0" y1="0" x2="300" y2="0" gradientUnits="userSpaceOnUse">
-                                <stop offset="0%" stop-color="transparent"/>
-                                <stop offset="30%" stop-color="#bf953f"/>
-                                <stop offset="50%" stop-color="#fcf6ba"/>
-                                <stop offset="70%" stop-color="#bf953f"/>
-                                <stop offset="100%" stop-color="transparent"/>
-                            </linearGradient>
-                        </defs>
-                    </svg>
-                </div>
-
-                <div class="pass-guest-label">PASE PERSONAL PARA</div>
-                <h2 id="invitadoNombre" class="pass-guest-name">FAMILIA E INVITADOS</h2>
-                <div class="pass-pases-badge">
-                    <span id="numPases">1</span> <span class="badge-text">PERSONAS</span>
-                </div>
-
-                <div class="pass-divider"></div>
-
-                <div class="pass-monogram">XV</div>
-                <h1 class="pass-name">Jennifer Arlete</h1>
-                <p class="pass-title-text">MIS QUINCE AÑOS</p>
-
-                <div id="mainCountdown" class="countdown-row"></div>
-
-                <div class="pass-meta-grid">
-                    <div class="meta-item"><div class="meta-label">FECHA</div><div class="meta-val">19 · 12 · 26</div></div>
-                    <div class="meta-item"><div class="meta-label">MISA</div><div class="meta-val">12:00 HRS</div></div>
-                    <div class="meta-item"><div class="meta-label">RECEPCIÓN</div><div class="meta-val">16:00 HRS</div></div>
-                    <div class="meta-item"><div class="meta-label">FALTAN</div><div class="meta-val" id="daysBox">— DÍAS</div></div>
-                </div>
-
-                <div class="pass-ornament bottom-ornament">
-                    <svg viewBox="0 0 300 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <use href="#topOrnSvg"/>
-                        <line x1="0" y1="10" x2="120" y2="10" stroke="url(#goldGrad)" stroke-width="0.5"/>
-                        <circle cx="150" cy="10" r="6" stroke="url(#goldGrad)" stroke-width="0.8" fill="none"/>
-                        <circle cx="150" cy="10" r="2" fill="url(#goldGrad)"/>
-                        <path d="M130 10 L140 5 L150 10 L140 15 Z" stroke="url(#goldGrad)" stroke-width="0.6" fill="none"/>
-                        <path d="M170 10 L160 5 L150 10 L160 15 Z" stroke="url(#goldGrad)" stroke-width="0.6" fill="none"/>
-                        <line x1="180" y1="10" x2="300" y2="10" stroke="url(#goldGrad)" stroke-width="0.5"/>
-                    </svg>
-                </div>
-
-                <button class="enter-btn" id="enterBtn">
-                    <span class="enter-btn-text">Abrir Invitación</span>
-                    <svg class="enter-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- ═══════════════ PERGAMINO INTERIOR ═══════════════ -->
-        <div class="invitation-scroll" id="scroll">
-
-            <header class="inv-header">
-                <div class="inv-header-line"></div>
-                <div class="inv-monogram">XV</div>
-                <div class="inv-header-line"></div>
-            </header>
-
-            <p class="inv-blessing">
-                Con la bendición de Dios, el amor de mis padres y mi familia,<br>
-                me siento feliz de llegar a este momento tan especial de mi vida.
-            </p>
-
-            <div class="inv-parents">
-                <span class="parent">José Luis Rosas Rodelas</span>
-                <span class="amp">&</span>
-                <span class="parent">Alicia Arellano Vera</span>
-            </div>
-            <p class="inv-invite-msg">se complacen en invitarles a los XV años de su hija</p>
-
-            <div class="inv-name-wrap">
-                <h1 class="inv-name">Jennifer Arlete<br><span class="inv-last-name">Rosas Arellano</span></h1>
-            </div>
-
-            <div class="inv-ornamental-rule">
-                <svg viewBox="0 0 400 16" xmlns="http://www.w3.org/2000/svg">
-                    <line x1="0" y1="8" x2="160" y2="8" stroke="url(#invGold)" stroke-width="0.6"/>
-                    <path d="M 165 8 Q 175 2, 185 8 Q 195 14, 205 8 Q 215 2, 225 8 Q 235 14, 245 8" stroke="url(#invGold)" stroke-width="0.8" fill="none"/>
-                    <line x1="250" y1="8" x2="400" y2="8" stroke="url(#invGold)" stroke-width="0.6"/>
-                    <defs><linearGradient id="invGold" x1="0" y1="0" x2="400" y2="0" gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stop-color="transparent"/>
-                        <stop offset="40%" stop-color="#bf953f"/>
-                        <stop offset="60%" stop-color="#bf953f"/>
-                        <stop offset="100%" stop-color="transparent"/>
-                    </linearGradient></defs>
-                </svg>
-            </div>
-
-            <!-- ACORDEÓN -->
-            <div class="inv-accordion">
-
-                <div class="acc-item">
-                    <button class="acc-header" aria-expanded="false">
-                        <span class="acc-icon">✦</span>
-                        <span class="acc-title">Ceremonia Religiosa</span>
-                        <span class="acc-chevron">↓</span>
-                    </button>
-                    <div class="acc-body">
-                        <p class="acc-text">Sagrado Corazón de Jesús<br>Río Blanco, Veracruz</p>
-                        <a href="https://www.google.com/maps/search/?api=1&query=Iglesia+Sagrado+Corazón+de+Jesús+Río+Blanco+Veracruz" target="_blank" class="inv-link-btn">Ver en Mapa</a>
-                    </div>
-                </div>
-
-                <div class="acc-item">
-                    <button class="acc-header" aria-expanded="false">
-                        <span class="acc-icon">✦</span>
-                        <span class="acc-title">Recepción</span>
-                        <span class="acc-chevron">↓</span>
-                    </button>
-                    <div class="acc-body">
-                        <p class="acc-text">Salón Ostotipac<br>Mártires del 14 de Abril 7,<br>La Carbonera, Nogales, Ver.</p>
-                        <a href="https://www.google.com/maps/place/Salon+Social+%22Ostotipac%22/@18.8295383,-97.1699308,17z" target="_blank" class="inv-link-btn">Cómo Llegar</a>
-                    </div>
-                </div>
-
-                <div class="acc-item">
-                    <button class="acc-header" aria-expanded="false">
-                        <span class="acc-icon">✦</span>
-                        <span class="acc-title">Código de Vestimenta</span>
-                        <span class="acc-chevron">↓</span>
-                    </button>
-                    <div class="acc-body">
-                        <p class="acc-text" style="font-size:1.1rem;font-style:italic">Formal</p>
-                        <p class="acc-note">Les pedimos reservar el color azul para la quinceañera.</p>
-                    </div>
-                </div>
-
-                <div class="acc-item">
-                    <button class="acc-header" aria-expanded="false">
-                        <span class="acc-icon">✦</span>
-                        <span class="acc-title">Confirmar Asistencia</span>
-                        <span class="acc-chevron">↓</span>
-                    </button>
-                    <div class="acc-body">
-                        <p class="acc-text">Confirma tu asistencia por WhatsApp</p>
-                        <a href="https://wa.me/2721003841?text=Hola!%20Confirmo%20mi%20asistencia%20a%20los%20XV%20años%20de%20Jennifer%20Arlete" target="_blank" class="inv-link-btn">Enviar Mensaje</a>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- ✦ BOTÓN ÁLBUM DE FOTOS ✦ -->
-            <div class="album-teaser" id="albumTeaser">
-                <div class="album-teaser-inner">
-                    <div class="album-teaser-icon">
-                        <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="30" cy="30" r="28" stroke="url(#albumGold)" stroke-width="0.8"/>
-                            <rect x="14" y="18" width="32" height="26" rx="3" stroke="url(#albumGold)" stroke-width="1"/>
-                            <circle cx="23" cy="28" r="4" stroke="url(#albumGold)" stroke-width="0.8"/>
-                            <path d="M14 36 L20 29 L27 35 L33 27 L46 40" stroke="url(#albumGold)" stroke-width="0.8" stroke-linejoin="round"/>
-                            <path d="M26 14 L30 10 L34 14" stroke="url(#albumGold)" stroke-width="0.8"/>
-                            <defs><linearGradient id="albumGold" x1="0" y1="0" x2="60" y2="60" gradientUnits="userSpaceOnUse">
-                                <stop stop-color="#d4a84b"/><stop offset="1" stop-color="#fcf6ba"/>
-                            </linearGradient></defs>
-                        </svg>
-                    </div>
-                    <div class="album-teaser-text">
-                        <h3 class="album-teaser-title">Guarda un Lindo Recuerdo</h3>
-                        <p class="album-teaser-sub">Comparte tus fotos de este día especial y ayúdanos a construir un álbum de memorias para Jennifer</p>
-                    </div>
-                    <a href="album.html" class="album-open-btn">
-                        <span>Ver el Álbum</span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="16"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </a>
-                </div>
-            </div>
-
-            <p class="inv-final">¡Te esperamos para una noche que jamás olvidarás!</p>
-
-            <div class="inv-ornamental-rule" style="margin-bottom:30px">
-                <svg viewBox="0 0 400 16" xmlns="http://www.w3.org/2000/svg">
-                    <line x1="0" y1="8" x2="160" y2="8" stroke="url(#invGold2)" stroke-width="0.6"/>
-                    <path d="M 165 8 Q 175 2, 185 8 Q 195 14, 205 8 Q 215 2, 225 8 Q 235 14, 245 8" stroke="url(#invGold2)" stroke-width="0.8" fill="none"/>
-                    <line x1="250" y1="8" x2="400" y2="8" stroke="url(#invGold2)" stroke-width="0.6"/>
-                    <defs><linearGradient id="invGold2" x1="0" y1="0" x2="400" y2="0" gradientUnits="userSpaceOnUse">
-                        <stop offset="0%" stop-color="transparent"/>
-                        <stop offset="40%" stop-color="#bf953f"/>
-                        <stop offset="60%" stop-color="#bf953f"/>
-                        <stop offset="100%" stop-color="transparent"/>
-                    </linearGradient></defs>
-                </svg>
-            </div>
-
-            <div class="inv-close-wrap">
-                <button class="close-seal" id="closeBtn">
-                    <span class="close-seal-roman">XV</span>
-                    <span class="close-seal-label">Cerrar</span>
-                </button>
-            </div>
-
-        </div>
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-icon">📸</div>
+      <h1 class="logo">FotoApuntes</h1>
+      <p class="tagline">Álbum Escolar · Fotos de clase</p>
     </div>
+  </header>
 
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="js/javascript.js"></script>
+  <main class="main">
+
+    <section class="albums-section" id="albumsSection">
+      <div class="section-header">
+        <h2 class="section-title">Mis Materias</h2>
+        <div class="section-header-btns">
+          <button class="btn-new-group" id="btnNewGroup">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Nuevo Grupo
+          </button>
+          <button class="btn-new-gallery" id="btnNewGallery">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Nueva Materia
+          </button>
+        </div>
+      </div>
+
+      <div class="empty-state" id="emptyState" style="display:none">
+        <div class="empty-icon">🗂️</div>
+        <p class="empty-text">Empieza creando un <strong>Grupo</strong> (ej: "1er Semestre")<br>y después agrega tus materias dentro de él.</p>
+      </div>
+
+      <div id="groupsContainer"></div>
+    </section>
+
+    <section class="gallery-section" id="gallerySection">
+      <div class="gallery-header">
+        <button class="btn-back" id="btnBack">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          Volver
+        </button>
+        <h2 class="gallery-title" id="galleryTitle">Materia</h2>
+        <button class="btn-upload-top" id="btnUploadTop">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Subir Fotos
+        </button>
+      </div>
+
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-drop-area" id="dropArea">
+          <div class="upload-drop-icon">📷</div>
+          <p class="upload-drop-text">Arrastra fotos aquí o elige una opción:</p>
+          <div class="upload-btn-row">
+            <label class="btn-file-pick" for="fileInput">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              Desde archivo
+            </label>
+            <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+            <label class="btn-camera-pick" for="cameraInput">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Tomar foto
+            </label>
+            <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+          </div>
+          <p class="upload-drop-hint">JPG, PNG, HEIC · Múltiples fotos a la vez</p>
+        </div>
+        <div class="upload-meta">
+          <input type="text" id="uploadCaption" class="upload-input" placeholder="Descripción / tema del apunte (opcional)">
+          <button class="btn-upload-send" id="btnUploadSend" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Subir
+          </button>
+        </div>
+        <div class="upload-preview-list" id="uploadPreviewList"></div>
+        <div class="upload-progress" id="uploadProgress" style="display:none">
+          <div class="upload-progress-bar" id="uploadProgressBar"></div>
+          <p class="upload-progress-text" id="uploadProgressText">Subiendo…</p>
+        </div>
+      </div>
+
+      <div class="photos-grid" id="photosGrid"></div>
+    </section>
+
+  </main>
+
+  <!-- LIGHTBOX -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+    <button class="lightbox-close" id="lightboxClose">&times;</button>
+    <button class="lightbox-prev"  id="lightboxPrev">&#8249;</button>
+    <button class="lightbox-next"  id="lightboxNext">&#8250;</button>
+    <div class="lightbox-content">
+      <div class="lightbox-img-wrap"><img src="" alt="" id="lightboxImg"></div>
+      <p class="lightbox-caption" id="lightboxCaption"></p>
+    </div>
+  </div>
+
+  <!-- MODAL: COMENTARIOS -->
+  <div class="modal-overlay" id="commentsModal">
+    <div class="modal-box comments-box">
+      <button class="modal-close" id="commentsClose">&times;</button>
+      <h3 class="modal-title" id="commentsTitleEl">Notas</h3>
+      <div class="comments-list" id="commentsList"></div>
+      <form class="comments-form" id="commentsForm">
+        <input type="text" id="commentsAuthor" class="modal-input" placeholder="Tu nombre (opcional)">
+        <textarea id="commentsText" class="modal-input modal-textarea" placeholder="Escribe una nota…" required></textarea>
+        <button type="submit" class="btn-primary">Guardar nota</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: NUEVO GRUPO -->
+  <div class="modal-overlay" id="newGroupModal">
+    <div class="modal-box">
+      <button class="modal-close" id="newGroupClose">&times;</button>
+      <h3 class="modal-title">Nuevo Grupo</h3>
+      <p class="modal-desc">Agrupa tus materias como quieras: por semestre, ciclo escolar, categoría, etc.</p>
+      <label class="modal-label" for="groupNameInput">Nombre del grupo</label>
+      <input type="text" id="groupNameInput" class="modal-input" placeholder="Ej: 1er Semestre, Verano 2025…" maxlength="50">
+      <label class="modal-label" style="margin-top:6px">Icono del grupo</label>
+      <div class="emoji-picker" id="groupEmojiPicker"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="newGroupCancel">Cancelar</button>
+        <button class="btn-primary" id="newGroupConfirm">Crear grupo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NUEVA MATERIA -->
+  <div class="modal-overlay" id="newGalleryModal">
+    <div class="modal-box">
+      <button class="modal-close" id="newGalleryClose">&times;</button>
+      <h3 class="modal-title">Nueva Materia</h3>
+      <label class="modal-label" for="galleryName">Nombre de la materia</label>
+      <input type="text" id="galleryName" class="modal-input" placeholder="Ej: Matemáticas, Historia…" maxlength="40">
+      <label class="modal-label" style="margin-top:6px">Icono</label>
+      <div class="emoji-picker" id="emojiPicker"></div>
+      <label class="modal-label" style="margin-top:12px">Tag en Cloudinary</label>
+      <input type="text" id="galleryTag" class="modal-input" placeholder="Ej: mates_2025 (sin espacios)" maxlength="40">
+      <p class="modal-hint">Se genera automáticamente desde el nombre.</p>
+      <label class="modal-label" style="margin-top:6px">Grupo</label>
+      <select id="galleryGroupSelect" class="modal-input modal-select"></select>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="newGalleryCancel">Cancelar</button>
+        <button class="btn-primary" id="newGalleryConfirm">Crear materia</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PIN ADMIN -->
+  <div class="modal-overlay" id="pinModal">
+    <div class="modal-box pin-box">
+      <h3 class="modal-title" id="pinMensaje">Confirmar acción</h3>
+      <p class="pin-subtitle">Ingresa tu PIN de administrador</p>
+      <div class="pin-dots" id="pinDotsContainer">
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+      </div>
+      <p class="pin-error" id="pinError"></p>
+      <div class="pin-keyboard">
+        <button class="pin-key" data-val="1">1</button>
+        <button class="pin-key" data-val="2">2</button>
+        <button class="pin-key" data-val="3">3</button>
+        <button class="pin-key" data-val="4">4</button>
+        <button class="pin-key" data-val="5">5</button>
+        <button class="pin-key" data-val="6">6</button>
+        <button class="pin-key" data-val="7">7</button>
+        <button class="pin-key" data-val="8">8</button>
+        <button class="pin-key" data-val="9">9</button>
+        <button class="pin-key pin-key-cancel" id="pinCancelBtn">Cancelar</button>
+        <button class="pin-key" data-val="0">0</button>
+        <button class="pin-key pin-key-del" data-val="del">⌫</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIREBASE — proyecto fotoApuntes -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import {
+      getFirestore, collection, addDoc, query, where, getDocs,
+      orderBy, onSnapshot, serverTimestamp, doc, setDoc, increment,
+      getDoc, deleteDoc, updateDoc, writeBatch
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey:            "AIzaSyD8l2oPUs2FwwG72HlBQcLnRnc3ebw3dtk",
+      authDomain:        "fotoapuntes.firebaseapp.com",
+      projectId:         "fotoapuntes",
+      storageBucket:     "fotoapuntes.firebasestorage.app",
+      messagingSenderId: "355629825313",
+      appId:             "1:355629825313:web:4183c56dac087c2e3d1260"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+    window._firestoreDb  = db;
+    window._firestoreLib = {
+      collection, addDoc, query, where, getDocs, orderBy,
+      onSnapshot, serverTimestamp, doc, setDoc, increment,
+      getDoc, deleteDoc, updateDoc, writeBatch
+    };
+    window._firebaseReady = true;
+  </script>
+
+  <script src="js/escolar.js"></script>
 </body>
 </html>
