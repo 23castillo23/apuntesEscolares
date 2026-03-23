@@ -1,54 +1,20 @@
 /**
- * ╔══════════════════════════════════════════════════════╗
- * ║           FotoApuntes — escolar.js                  ║
- * ║         Configuración ya lista para usar            ║
- * ╠══════════════════════════════════════════════════════╣
- * ║  Cuando tengas tu URL de Netlify, cambia SOLO esta  ║
- * ║  línea:                                             ║
- * ║  const DELETE_FUNCTION_URL = 'https://TU-SITIO...' ║
- * ╚══════════════════════════════════════════════════════╝
+ * FotoApuntes — escolar.js
+ * Grupos y materias guardados en Firebase Firestore
+ * Fotos en Cloudinary
+ * Likes y comentarios en Firestore
  */
 
-/* ── Cloudinary ─────────────────────────────────────── */
 const CLOUDINARY_CLOUD  = 'dwjzn6n0a';
 const CLOUDINARY_PRESET = 'escolar_unsigned';
-
-/* ── URL función Netlify ────────────────────────────── */
-/* ← CAMBIA ESTO cuando Netlify te dé tu URL            */
 const DELETE_FUNCTION_URL = 'https://gilded-kataifi-894a8b.netlify.app/.netlify/functions/delete-photo';
-
-/* ── PIN de administrador ───────────────────────────── */
-/* ← CAMBIA ESTO por tu PIN secreto                     */
-const ADMIN_PIN = '1234';
-
-/* ════════════════════════════════════════════════════════
-   STORAGE — localStorage
-   GRUPOS:   [{ id, name, icon, open }]
-   GALERIAS: [{ id, name, icon, cloudinaryTag, coverImage, groupId }]
-════════════════════════════════════════════════════════ */
-const KEY_GRUPOS   = 'fotoApuntes_grupos';
-const KEY_GALERIAS = 'fotoApuntes_galerias';
-
-function cargarGrupos()   { try { return JSON.parse(localStorage.getItem(KEY_GRUPOS))   || []; } catch { return []; } }
-function cargarGalerias() { try { return JSON.parse(localStorage.getItem(KEY_GALERIAS)) || []; } catch { return []; } }
-
-function guardarGrupos(list) {
-  localStorage.setItem(KEY_GRUPOS, JSON.stringify(
-    list.map(g => ({ id: g.id, name: g.name, icon: g.icon, open: g.open !== false }))
-  ));
-}
-function guardarGalerias(list) {
-  localStorage.setItem(KEY_GALERIAS, JSON.stringify(
-    list.map(g => ({ id: g.id, name: g.name, icon: g.icon, cloudinaryTag: g.cloudinaryTag, coverImage: g.coverImage || '', groupId: g.groupId || '' }))
-  ));
-}
-
-let GRUPOS   = cargarGrupos();
-let GALERIAS = cargarGalerias();
+const ADMIN_PIN = '1234'; // ← cambia por tu PIN secreto
 
 /* ════════════════════════════════════════════════════════
    ESTADO
 ════════════════════════════════════════════════════════ */
+let GRUPOS   = [];
+let GALERIAS = [];
 let currentGaleria    = null;
 let currentPhotoIndex = 0;
 let likedPhotos       = new Set(JSON.parse(localStorage.getItem('escolar_liked') || '[]'));
@@ -60,11 +26,84 @@ let selectedEmoji     = '📚';
 let selectedGroupEmoji= '📁';
 let pinCallback       = null;
 let pinEntrado        = '';
-
-/* Lightbox zoom/pan */
 let isPanning = false, startX = 0, startY = 0, panX = 0, panY = 0, startPX = 0, startPY = 0;
 let currentZoom = 1;
 const MIN_ZOOM = 1, MAX_ZOOM = 3, ZOOM_STEP = 0.25;
+
+/* ════════════════════════════════════════════════════════
+   FIREBASE — esperar a que esté listo
+════════════════════════════════════════════════════════ */
+function waitForFirebase(cb) {
+  if (window._firestoreDb && window._firestoreLib) { cb(); return; }
+  const t = setInterval(() => {
+    if (window._firestoreDb && window._firestoreLib) { clearInterval(t); cb(); }
+  }, 100);
+}
+
+function getDB() { return window._firestoreDb; }
+function getLib() { return window._firestoreLib; }
+
+/* ════════════════════════════════════════════════════════
+   FIRESTORE — Grupos
+════════════════════════════════════════════════════════ */
+function escucharGrupos() {
+  const { collection, onSnapshot, query, orderBy } = getLib();
+  const q = query(collection(getDB(), 'fa_grupos'), orderBy('createdAt', 'asc'));
+  onSnapshot(q, snap => {
+    GRUPOS = [];
+    snap.forEach(d => GRUPOS.push({ id: d.id, ...d.data() }));
+    renderTodo();
+  });
+}
+
+async function crearGrupo(name, icon) {
+  const { collection, addDoc, serverTimestamp } = getLib();
+  await addDoc(collection(getDB(), 'fa_grupos'), {
+    name, icon, open: true, createdAt: serverTimestamp()
+  });
+}
+
+async function eliminarGrupoFirebase(id) {
+  const { doc, deleteDoc, collection, getDocs, query, where, writeBatch } = getLib();
+  const db = getDB();
+  // Quitar groupId de materias que pertenecen a este grupo
+  const batch = writeBatch(db);
+  const q = query(collection(db, 'fa_galerias'), where('groupId', '==', id));
+  const snap = await getDocs(q);
+  snap.forEach(d => batch.update(d.ref, { groupId: '' }));
+  await batch.commit();
+  await deleteDoc(doc(db, 'fa_grupos', id));
+}
+
+async function toggleGrupoOpen(id, open) {
+  const { doc, updateDoc } = getLib();
+  await updateDoc(doc(getDB(), 'fa_grupos', id), { open });
+}
+
+/* ════════════════════════════════════════════════════════
+   FIRESTORE — Galerías (materias)
+════════════════════════════════════════════════════════ */
+function escucharGalerias() {
+  const { collection, onSnapshot, query, orderBy } = getLib();
+  const q = query(collection(getDB(), 'fa_galerias'), orderBy('createdAt', 'asc'));
+  onSnapshot(q, snap => {
+    GALERIAS = [];
+    snap.forEach(d => GALERIAS.push({ id: d.id, ...d.data(), photos: [] }));
+    renderTodo();
+  });
+}
+
+async function crearGaleria(name, icon, cloudinaryTag, groupId) {
+  const { collection, addDoc, serverTimestamp } = getLib();
+  await addDoc(collection(getDB(), 'fa_galerias'), {
+    name, icon, cloudinaryTag, groupId, coverImage: '', createdAt: serverTimestamp()
+  });
+}
+
+async function eliminarGaleriaFirebase(id) {
+  const { doc, deleteDoc } = getLib();
+  await deleteDoc(doc(getDB(), 'fa_galerias', id));
+}
 
 /* ════════════════════════════════════════════════════════
    DOM
@@ -141,30 +180,25 @@ function renderEmojiPickerEn(container, emojis, current, onSelect) {
 }
 
 /* ════════════════════════════════════════════════════════
-   PIN DE ADMINISTRADOR
+   PIN
 ════════════════════════════════════════════════════════ */
 function pedirPin(mensaje, callback) {
-  pinEntrado  = '';
-  pinCallback = callback;
+  pinEntrado = ''; pinCallback = callback;
   pinError.textContent = '';
   document.getElementById('pinMensaje').textContent = mensaje;
   actualizarPuntos();
   pinModal.classList.add('open');
 }
-
 function cerrarPinModal() {
   pinModal.classList.remove('open');
-  pinEntrado  = '';
-  pinCallback = null;
+  pinEntrado = ''; pinCallback = null;
   pinError.textContent = '';
   actualizarPuntos();
 }
-
 function actualizarPuntos() {
-  const dots = pinDotsContainer.querySelectorAll('.pin-dot');
-  dots.forEach((d, i) => d.classList.toggle('filled', i < pinEntrado.length));
+  pinDotsContainer.querySelectorAll('.pin-dot').forEach((d, i) =>
+    d.classList.toggle('filled', i < pinEntrado.length));
 }
-
 function presionarTecla(val) {
   if (val === 'del') { pinEntrado = pinEntrado.slice(0, -1); actualizarPuntos(); return; }
   if (pinEntrado.length >= ADMIN_PIN.length) return;
@@ -172,40 +206,28 @@ function presionarTecla(val) {
   actualizarPuntos();
   if (pinEntrado.length === ADMIN_PIN.length) {
     setTimeout(() => {
-      if (pinEntrado === ADMIN_PIN) {
-        cerrarPinModal();
-        if (pinCallback) pinCallback();
-      } else {
-        pinError.textContent = '❌ PIN incorrecto. Inténtalo de nuevo.';
-        pinEntrado = '';
-        actualizarPuntos();
-      }
+      if (pinEntrado === ADMIN_PIN) { cerrarPinModal(); if (pinCallback) pinCallback(); }
+      else { pinError.textContent = '❌ PIN incorrecto.'; pinEntrado = ''; actualizarPuntos(); }
     }, 200);
   }
 }
-
 function initPinModal() {
-  document.querySelectorAll('.pin-key').forEach(btn => {
-    btn.addEventListener('click', () => presionarTecla(btn.dataset.val));
-  });
+  document.querySelectorAll('.pin-key').forEach(btn =>
+    btn.addEventListener('click', () => presionarTecla(btn.dataset.val)));
   pinCancelBtn.addEventListener('click', cerrarPinModal);
   pinModal.addEventListener('click', e => { if (e.target === pinModal) cerrarPinModal(); });
 }
 
 /* ════════════════════════════════════════════════════════
-   RENDER PRINCIPAL — acordeones de grupos
+   RENDER PRINCIPAL
 ════════════════════════════════════════════════════════ */
 function renderTodo() {
-  const hayGrupos   = GRUPOS.length > 0;
-  const hayMaterias = GALERIAS.length > 0;
-
-  if (!hayGrupos && !hayMaterias) {
+  if (!GRUPOS.length && !GALERIAS.length) {
     emptyState.style.display = 'block';
     groupsContainer.innerHTML = '';
     return;
   }
   emptyState.style.display = 'none';
-
   let html = '';
 
   GRUPOS.forEach(grupo => {
@@ -229,7 +251,7 @@ function renderTodo() {
         </div>
         <div class="group-body">
           <div class="carousel-wrap">
-            <div class="albums-carousel" id="carousel-${grupo.id}">
+            <div class="albums-carousel">
               ${materias.length === 0
                 ? `<p class="carousel-empty">Sin materias aún.</p>`
                 : materias.map(m => albumCardHTML(m)).join('')}
@@ -292,8 +314,8 @@ function attachGroupEvents() {
       const acc = header.closest('.group-accordion');
       const id  = acc.dataset.groupId;
       acc.classList.toggle('open');
-      const grupo = GRUPOS.find(g => g.id === id);
-      if (grupo) { grupo.open = acc.classList.contains('open'); guardarGrupos(GRUPOS); }
+      const isOpen = acc.classList.contains('open');
+      toggleGrupoOpen(id, isOpen);
     });
   });
 
@@ -302,12 +324,8 @@ function attachGroupEvents() {
       e.stopPropagation();
       const id    = btn.dataset.groupId;
       const grupo = GRUPOS.find(g => g.id === id);
-      pedirPin(`Eliminar grupo "${grupo?.name}"`, () => {
-        GRUPOS = GRUPOS.filter(g => g.id !== id);
-        GALERIAS.forEach(g => { if (g.groupId === id) g.groupId = ''; });
-        guardarGrupos(GRUPOS);
-        guardarGalerias(GALERIAS);
-        renderTodo();
+      pedirPin(`Eliminar grupo "${grupo?.name}"`, async () => {
+        await eliminarGrupoFirebase(id);
       });
     });
   });
@@ -317,10 +335,8 @@ function attachGroupEvents() {
       e.stopPropagation();
       const id      = btn.dataset.id;
       const materia = GALERIAS.find(g => g.id === id);
-      pedirPin(`Eliminar materia "${materia?.name}"`, () => {
-        GALERIAS = GALERIAS.filter(g => g.id !== id);
-        guardarGalerias(GALERIAS);
-        renderTodo();
+      pedirPin(`Eliminar materia "${materia?.name}"`, async () => {
+        await eliminarGaleriaFirebase(id);
       });
     });
   });
@@ -328,11 +344,16 @@ function attachGroupEvents() {
   groupsContainer.querySelectorAll('.album-card').forEach(card => {
     const open = () => openGaleria(card.dataset.id);
     card.addEventListener('click', open);
-    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
   });
 
   groupsContainer.querySelectorAll('.btn-add-to-group').forEach(btn => {
-    btn.addEventListener('click', () => { pendingGroupId = btn.dataset.groupId; openNewGalleryModal(pendingGroupId); });
+    btn.addEventListener('click', () => {
+      pendingGroupId = btn.dataset.groupId;
+      openNewGalleryModal(pendingGroupId);
+    });
   });
 }
 
@@ -352,8 +373,12 @@ async function cargarFotosDeGaleria(galeria) {
       id:       f.public_id.replace(/\//g, '_'),
       publicId: f.public_id,
     }));
-    if (!galeria.coverImage && galeria.photos.length > 0) galeria.coverImage = galeria.photos[0].src;
-    guardarGalerias(GALERIAS);
+    // Actualizar coverImage en Firestore si no tiene
+    if (!galeria.coverImage && galeria.photos.length > 0) {
+      const { doc, updateDoc } = getLib();
+      await updateDoc(doc(getDB(), 'fa_galerias', galeria.id), { coverImage: galeria.photos[0].src });
+      galeria.coverImage = galeria.photos[0].src;
+    }
   } catch(e) {
     galeria.photos = galeria.photos || [];
   }
@@ -363,7 +388,7 @@ async function cargarConteosDeFotos() {
   for (const g of GALERIAS) {
     cargarFotosDeGaleria(g).then(() => {
       const el = document.getElementById('count-' + g.id);
-      if (el) el.textContent = `${g.photos?.length || 0} ${(g.photos?.length === 1) ? 'foto' : 'fotos'}`;
+      if (el) el.textContent = `${g.photos?.length || 0} ${g.photos?.length === 1 ? 'foto' : 'fotos'}`;
     });
   }
 }
@@ -428,9 +453,14 @@ function renderPhotos() {
       </div>
     </div>`).join('');
 
-  photosGrid.querySelectorAll('.photo-item img').forEach((img, i) => img.addEventListener('click', () => openLightbox(i)));
-  photosGrid.querySelectorAll('.btn-like').forEach(btn => { btn.addEventListener('click', () => toggleLike(btn.dataset.id, btn)); loadLikes(btn.dataset.id); });
-  photosGrid.querySelectorAll('.btn-comments').forEach(btn => btn.addEventListener('click', () => openComments(btn.dataset.src, btn.dataset.caption)));
+  photosGrid.querySelectorAll('.photo-item img').forEach((img, i) =>
+    img.addEventListener('click', () => openLightbox(i)));
+  photosGrid.querySelectorAll('.btn-like').forEach(btn => {
+    btn.addEventListener('click', () => toggleLike(btn.dataset.id, btn));
+    loadLikes(btn.dataset.id);
+  });
+  photosGrid.querySelectorAll('.btn-comments').forEach(btn =>
+    btn.addEventListener('click', () => openComments(btn.dataset.src, btn.dataset.caption)));
   photosGrid.querySelectorAll('.btn-delete-photo').forEach(btn => {
     btn.addEventListener('click', () => {
       pedirPin('Eliminar esta foto', () => eliminarFoto(btn.dataset.publicid, btn.dataset.src));
@@ -439,7 +469,7 @@ function renderPhotos() {
 }
 
 /* ════════════════════════════════════════════════════════
-   ELIMINAR FOTO — llama a la función de Netlify
+   ELIMINAR FOTO
 ════════════════════════════════════════════════════════ */
 async function eliminarFoto(publicId, src) {
   const btn = photosGrid.querySelector(`[data-publicid="${publicId}"]`);
@@ -455,13 +485,13 @@ async function eliminarFoto(publicId, src) {
     if (currentGaleria?.photos) {
       currentGaleria.photos = currentGaleria.photos.filter(p => p.src !== src);
     }
-    if (currentGaleria && (!currentGaleria.coverImage || currentGaleria.coverImage === src)) {
-      currentGaleria.coverImage = currentGaleria.photos[0]?.src || '';
-      guardarGalerias(GALERIAS);
+    if (currentGaleria && currentGaleria.coverImage === src) {
+      const newCover = currentGaleria.photos[0]?.src || '';
+      const { doc, updateDoc } = getLib();
+      await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: newCover });
     }
     renderPhotos();
   } catch(err) {
-    console.error('Error eliminando foto:', err);
     alert('No se pudo eliminar la foto: ' + err.message);
     renderPhotos();
   }
@@ -510,9 +540,13 @@ btnUploadSend.addEventListener('click', async () => {
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
       subidas++;
-      const pct = Math.round((subidas / total) * 100);
-      uploadProgressBar.style.width  = pct + '%';
+      uploadProgressBar.style.width  = Math.round((subidas / total) * 100) + '%';
       uploadProgressText.textContent = `Subiendo ${subidas} de ${total}…`;
+      // Actualizar coverImage si es la primera foto
+      if (subidas === 1 && !currentGaleria.coverImage) {
+        const { doc, updateDoc } = getLib();
+        await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: data.secure_url });
+      }
     } catch(err) {
       uploadProgressText.textContent = `Error: ${err.message}`;
     }
@@ -585,23 +619,23 @@ window.addEventListener('mousemove', e => { if (!isPanning) return; panX = start
 window.addEventListener('mouseup', () => { isPanning = false; });
 
 /* ════════════════════════════════════════════════════════
-   LIKES (Firestore)
+   LIKES
 ════════════════════════════════════════════════════════ */
 async function loadLikes(photoId) {
-  if (!window._firestoreDb || !window._firestoreLib) return;
-  const { doc, getDoc } = window._firestoreLib;
+  if (!window._firestoreDb) return;
+  const { doc, getDoc } = getLib();
   try {
-    const snap = await getDoc(doc(window._firestoreDb, 'escolar_likes', 'p_' + photoId));
+    const snap = await getDoc(doc(getDB(), 'escolar_likes', 'p_' + photoId));
     const el = document.getElementById('likes-' + photoId);
     if (el) el.textContent = snap.exists() ? (snap.data().likes || 0) : 0;
   } catch(e) {}
 }
 async function toggleLike(photoId, btn) {
-  if (!window._firestoreDb || !window._firestoreLib) return;
-  const { doc, setDoc, increment } = window._firestoreLib;
+  if (!window._firestoreDb) return;
+  const { doc, setDoc, increment } = getLib();
   const already = likedPhotos.has(photoId);
   try {
-    await setDoc(doc(window._firestoreDb, 'escolar_likes', 'p_' + photoId), { likes: increment(already ? -1 : 1) }, { merge: true });
+    await setDoc(doc(getDB(), 'escolar_likes', 'p_' + photoId), { likes: increment(already ? -1 : 1) }, { merge: true });
     already ? likedPhotos.delete(photoId) : likedPhotos.add(photoId);
     localStorage.setItem('escolar_liked', JSON.stringify([...likedPhotos]));
     btn.querySelector('.heart').textContent = likedPhotos.has(photoId) ? '❤️' : '🤍';
@@ -611,7 +645,7 @@ async function toggleLike(photoId, btn) {
 }
 
 /* ════════════════════════════════════════════════════════
-   COMENTARIOS (Firestore)
+   COMENTARIOS
 ════════════════════════════════════════════════════════ */
 function openComments(photoSrc, caption) {
   currentCommentsId = btoa(photoSrc).replace(/\//g, '_');
@@ -626,10 +660,10 @@ function closeCommentsModal() {
   currentCommentsId = null;
 }
 function listenComments(photoId) {
-  if (!window._firestoreDb || !window._firestoreLib) { commentsList.innerHTML = '<p class="no-comments">Firebase no conectado.</p>'; return; }
-  const { collection, query, where, onSnapshot } = window._firestoreLib;
+  if (!window._firestoreDb) { commentsList.innerHTML = '<p class="no-comments">Firebase no conectado.</p>'; return; }
+  const { collection, query, where, onSnapshot } = getLib();
   if (commentListeners[photoId]) commentListeners[photoId]();
-  const q = query(collection(window._firestoreDb, 'escolar_comments'), where('photoId', '==', photoId));
+  const q = query(collection(getDB(), 'escolar_comments'), where('photoId', '==', photoId));
   commentListeners[photoId] = onSnapshot(q, snap => {
     const docs = [];
     snap.forEach(d => docs.push(d.data()));
@@ -649,13 +683,13 @@ commentsClose.addEventListener('click', closeCommentsModal);
 commentsModal.addEventListener('click', e => { if (e.target === commentsModal) closeCommentsModal(); });
 commentsForm.addEventListener('submit', async e => {
   e.preventDefault();
-  if (!window._firestoreDb || !window._firestoreLib || !currentCommentsId) return;
-  const { collection, addDoc, serverTimestamp } = window._firestoreLib;
+  if (!window._firestoreDb || !currentCommentsId) return;
+  const { collection, addDoc, serverTimestamp } = getLib();
   const author = commentsAuthor.value.trim() || 'Yo';
   const text   = commentsText.value.trim();
   if (!text) return;
   try {
-    await addDoc(collection(window._firestoreDb, 'escolar_comments'), { photoId: currentCommentsId, author, text, createdAt: serverTimestamp() });
+    await addDoc(collection(getDB(), 'escolar_comments'), { photoId: currentCommentsId, author, text, createdAt: serverTimestamp() });
     commentsText.value = '';
   } catch(err) { alert('No se pudo guardar la nota.'); }
 });
@@ -676,13 +710,11 @@ btnNewGroup.addEventListener('click', openNewGroupModal);
 newGroupClose.addEventListener('click', closeNewGroupModal);
 newGroupCancel.addEventListener('click', closeNewGroupModal);
 newGroupModal.addEventListener('click', e => { if (e.target === newGroupModal) closeNewGroupModal(); });
-newGroupConfirm.addEventListener('click', () => {
+newGroupConfirm.addEventListener('click', async () => {
   const name = groupNameInput.value.trim();
   if (!name) { alert('Escribe el nombre del grupo.'); return; }
-  GRUPOS.push({ id: 'grupo_' + Date.now(), name, icon: selectedGroupEmoji, open: true });
-  guardarGrupos(GRUPOS);
   closeNewGroupModal();
-  renderTodo();
+  await crearGrupo(name, selectedGroupEmoji);
 });
 
 /* ════════════════════════════════════════════════════════
@@ -716,15 +748,13 @@ galleryName.addEventListener('input', () => {
   }
 });
 
-newGalleryConfirm.addEventListener('click', () => {
+newGalleryConfirm.addEventListener('click', async () => {
   const name    = galleryName.value.trim();
   const tag     = galleryTag.value.trim().replace(/\s+/g, '_');
   const groupId = galleryGroupSelect.value;
   if (!name || !tag) { alert('Por favor llena el nombre y el tag.'); return; }
-  GALERIAS.push({ id: 'mat_' + Date.now(), name, icon: selectedEmoji, cloudinaryTag: tag, coverImage: '', groupId });
-  guardarGalerias(GALERIAS);
   closeNewGalleryModal();
-  renderTodo();
+  await crearGaleria(name, selectedEmoji, tag, groupId);
 });
 
 /* ════════════════════════════════════════════════════════
@@ -740,7 +770,10 @@ function escHtml(str) {
 }
 
 /* ════════════════════════════════════════════════════════
-   ARRANQUE
+   ARRANQUE — esperar Firebase y escuchar colecciones
 ════════════════════════════════════════════════════════ */
 initPinModal();
-renderTodo();
+waitForFirebase(() => {
+  escucharGrupos();
+  escucharGalerias();
+});
