@@ -107,7 +107,7 @@ function saveOpenGroupsState() {
 }
 
 function isGroupOpen(groupId) {
-  if (openGroupIds.size === 0 && !localStorage.getItem(GROUPS_OPEN_STORAGE_KEY)) return true;
+  if (!localStorage.getItem(GROUPS_OPEN_STORAGE_KEY)) return false;
   return openGroupIds.has(groupId);
 }
 
@@ -309,7 +309,7 @@ function renderTodo() {
           <span class="group-name">${escHtml(grupo.name)}</span>
           <span class="group-count">${materias.length} ${materias.length === 1 ? 'materia' : 'materias'}</span>
           <div class="group-mini-actions">
-            <button class="group-mini-btn" data-open-group="${grupo.id}" title="Abrir grupo">Abrir</button>
+            <button class="group-mini-btn" data-open-group="${grupo.id}" title="${isOpen ? 'Cerrar grupo' : 'Abrir grupo'}">${isOpen ? 'Cerrar' : 'Abrir'}</button>
             <button class="group-mini-btn primary" data-group-notes="${grupo.id}" data-group-name="${escHtml(grupo.name)}" title="Notas del grupo">Notas</button>
           </div>
           <button class="group-delete" data-group-id="${grupo.id}" title="Mantén presionado para eliminar">
@@ -401,11 +401,7 @@ function attachGroupEvents() {
   groupsContainer.querySelectorAll('.group-header').forEach(header => {
     header.addEventListener('click', e => {
       if (e.target.closest('.group-delete') || e.target.closest('.group-mini-btn')) return;
-      const acc = header.closest('.group-accordion');
-      const id = acc.dataset.groupId;
-      acc.classList.toggle('open');
-      const isOpen = acc.classList.contains('open');
-      toggleGrupoOpen(id, isOpen);
+      e.preventDefault();
     });
   });
 
@@ -492,8 +488,11 @@ function attachGroupEvents() {
       const id = btn.dataset.openGroup;
       const acc = groupsContainer.querySelector(`.group-accordion[data-group-id="${id}"]`);
       if (!acc) return;
-      acc.classList.add('open');
-      toggleGrupoOpen(id, true);
+      const willOpen = !acc.classList.contains('open');
+      acc.classList.toggle('open', willOpen);
+      toggleGrupoOpen(id, willOpen);
+      btn.textContent = willOpen ? 'Cerrar' : 'Abrir';
+      btn.title = willOpen ? 'Cerrar grupo' : 'Abrir grupo';
     });
   });
   groupsContainer.querySelectorAll('[data-group-notes]').forEach(btn => {

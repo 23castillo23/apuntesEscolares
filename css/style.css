@@ -258,7 +258,7 @@ body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: i
 .group-accordion:not(.open) .group-header {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: .42rem; padding: 1.05rem .75rem 1.1rem;
-  cursor: pointer; user-select: none;
+  cursor: default; user-select: none;
   position: relative; overflow: hidden;
   background: var(--warm-white);
   border: 1px solid rgba(61,50,41,.12);
@@ -277,7 +277,7 @@ body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: i
 .group-accordion.open .group-header {
   display: flex; flex-direction: row; align-items: center; gap: .6rem;
   padding: .85rem 1rem;
-  cursor: pointer; user-select: none;
+  cursor: default; user-select: none;
   position: relative; overflow: hidden;
   background: var(--warm-white);
   border: 1px solid rgba(61,50,41,.1);
