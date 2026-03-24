@@ -107,8 +107,13 @@ function saveOpenGroupsState() {
 }
 
 function isGroupOpen(groupId) {
-  if (openGroupIds.size === 0 && !localStorage.getItem(GROUPS_OPEN_STORAGE_KEY)) return true;
+  if (openGroupIds.size === 0 && !localStorage.getItem(GROUPS_OPEN_STORAGE_KEY)) return false;
   return openGroupIds.has(groupId);
+}
+
+function resetOpenGroupsState() {
+  openGroupIds = new Set();
+  localStorage.removeItem(GROUPS_OPEN_STORAGE_KEY);
 }
 
 /* ════════════════════════════════════════════════════════
@@ -214,6 +219,7 @@ let deferredInstallPrompt = null;
 let currentSubjectCommentsId = null;
 let subjectCommentsUnsub = null;
 const GROUPS_OPEN_STORAGE_KEY = 'escolar_open_groups';
+const SUBJECT_NOTES_AUTHOR_STORAGE_KEY = 'escolar_subject_notes_author';
 let openGroupIds = new Set();
 
 /* ════════════════════════════════════════════════════════
@@ -888,7 +894,16 @@ commentsForm.addEventListener('submit', async e => {
 function openSubjectComments(subjectId, title) {
   if (!subjectCommentsModal) return;
   currentSubjectCommentsId = subjectId;
+  const isGroupNotes = String(subjectId || '').startsWith('group_');
   if (subjectCommentsTitle) subjectCommentsTitle.textContent = title || 'Notas de materia';
+  if (subjectCommentsText) {
+    subjectCommentsText.placeholder = isGroupNotes
+      ? 'Escribe una nota para este grupo...'
+      : 'Escribe una nota para esta materia...';
+  }
+  if (subjectCommentsAuthor && !subjectCommentsAuthor.value) {
+    subjectCommentsAuthor.value = localStorage.getItem(SUBJECT_NOTES_AUTHOR_STORAGE_KEY) || '';
+  }
   subjectCommentsList.innerHTML = '<p class="no-comments">Cargando…</p>';
   subjectCommentsModal.classList.add('open');
   listenSubjectComments(subjectId);
@@ -951,6 +966,7 @@ if (subjectCommentsForm) {
     if (!author) { alert('Escribe tu nombre para guardar la nota.'); subjectCommentsAuthor.focus(); return; }
     if (!text) return;
     try {
+      localStorage.setItem(SUBJECT_NOTES_AUTHOR_STORAGE_KEY, author);
       await addDoc(collection(getDB(), 'escolar_subject_comments'), {
         subjectId: currentSubjectCommentsId, author, text, createdAt: serverTimestamp()
       });
@@ -1108,10 +1124,14 @@ function initFilters() {
 initPinModal();
 initThemeToggle();
 initFilters();
-loadOpenGroupsState();
+resetOpenGroupsState();
 waitForFirebase(() => {
   escucharGrupos();
   escucharGalerias();
+});
+
+window.addEventListener('beforeunload', () => {
+  resetOpenGroupsState();
 });
 
 /* ════════════════════════════════════════════════════════
