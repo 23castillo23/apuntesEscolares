@@ -286,6 +286,10 @@ function renderTodo() {
           <span class="group-icon">${grupo.icon}</span>
           <span class="group-name">${escHtml(grupo.name)}</span>
           <span class="group-count">${materias.length} ${materias.length === 1 ? 'materia' : 'materias'}</span>
+          <div class="group-mini-actions">
+            <button class="group-mini-btn" data-open-group="${grupo.id}" title="Abrir grupo">Abrir</button>
+            <button class="group-mini-btn primary" data-group-notes="${grupo.id}" data-group-name="${escHtml(grupo.name)}" title="Notas del grupo">Notas</button>
+          </div>
           <button class="group-delete" data-group-id="${grupo.id}" title="Mantén presionado para eliminar">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -375,7 +379,7 @@ function albumCardHTML(g) {
 function attachGroupEvents() {
   groupsContainer.querySelectorAll('.group-header').forEach(header => {
     header.addEventListener('click', e => {
-      if (e.target.closest('.group-delete')) return;
+      if (e.target.closest('.group-delete') || e.target.closest('.group-mini-btn')) return;
       const acc = header.closest('.group-accordion');
       const id = acc.dataset.groupId;
       acc.classList.toggle('open');
@@ -459,6 +463,24 @@ function attachGroupEvents() {
     btn.addEventListener('click', () => {
       pendingGroupId = btn.dataset.groupId;
       openNewGalleryModal(pendingGroupId);
+    });
+  });
+  groupsContainer.querySelectorAll('[data-open-group]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.openGroup;
+      const acc = groupsContainer.querySelector(`.group-accordion[data-group-id="${id}"]`);
+      if (!acc) return;
+      acc.classList.add('open');
+      toggleGrupoOpen(id, true);
+    });
+  });
+  groupsContainer.querySelectorAll('[data-group-notes]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const groupId = btn.dataset.groupNotes;
+      const groupName = btn.dataset.groupName || 'Grupo';
+      openSubjectComments(`group_${groupId}`, `Notas · ${groupName}`);
     });
   });
 }

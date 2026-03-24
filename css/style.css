@@ -111,7 +111,7 @@ body[data-theme="dark"] .bg-gradient {
   border: 1px solid rgba(23,32,56,.09);
   box-shadow: 0 10px 28px rgba(23,32,56,.1);
   border-radius: 999px;
-  padding: .45rem .6rem;
+  padding: .4rem;
 }
 .toolbar-btn {
   border: none;
@@ -257,7 +257,7 @@ body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: i
 /* Header cerrado → apariencia de tarjeta cuadrada */
 .group-accordion:not(.open) .group-header {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .4rem; padding: 1.1rem .75rem .9rem;
+  gap: .42rem; padding: 1.05rem .75rem 1.1rem;
   cursor: pointer; user-select: none;
   position: relative; overflow: hidden;
   background: var(--warm-white);
@@ -265,7 +265,7 @@ body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: i
   border-radius: var(--radius-md);
   box-shadow: 0 3px 14px var(--shadow);
   transition: transform var(--ease), box-shadow var(--ease);
-  min-height: unset;
+  min-height: 190px;
   text-align: center;
 }
 .group-accordion:not(.open) .group-header:hover {
@@ -326,6 +326,35 @@ body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: i
   white-space: nowrap;
 }
 .group-accordion.open .group-header .group-count { margin-right: .35rem; }
+.group-mini-actions {
+  display: none;
+  width: 100%;
+  gap: .35rem;
+  margin-top: .2rem;
+}
+.group-accordion:not(.open) .group-mini-actions { display: flex; }
+.group-mini-btn {
+  flex: 1;
+  border: 1px solid rgba(23,32,56,.14);
+  background: #edf1fb;
+  color: #26324a;
+  border-radius: 10px;
+  font-size: .72rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  padding: .34rem .2rem;
+  cursor: pointer;
+}
+.group-mini-btn.primary {
+  background: linear-gradient(90deg, #5f66f1, #5048d8);
+  color: #fff;
+  border-color: transparent;
+}
+body[data-theme="dark"] .group-mini-btn {
+  background: #0f1a34;
+  border-color: rgba(175,188,255,.38);
+  color: #e8efff;
+}
 
 /* Chevron: en tarjeta se oculta */
 .group-chevron {
@@ -392,7 +421,7 @@ body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: i
   flex: 0 0 150px; scroll-snap-align: start; position: relative;
 }
 .album-card {
-  width: 165px; height: 284px; /* tamaño fijo siempre */
+  width: 165px; height: 268px; /* tamaño fijo siempre */
   background: var(--warm-white);
   border-radius: var(--radius-md); overflow: hidden;
   box-shadow: 0 9px 24px var(--shadow);
@@ -826,13 +855,13 @@ body[data-theme="dark"] .modal-input::placeholder { color: rgba(221,230,255,.52)
   .photo-img-wrap { height: 130px; }
   .btn-delete-photo { opacity: 1; }
   .album-card-wrap { flex: 0 0 145px; }
-  .album-card      { width: 145px; height: 266px; }
+  .album-card      { width: 145px; height: 252px; }
   .album-cover     { flex: 0 0 98px; }
   .album-cover img { height: 98px; }
   .upload-meta { flex-direction: column; }
   .upload-input { min-width: 100%; }
   .materia-delete { opacity: 1; pointer-events: auto; }
-  .group-accordion:not(.open) .group-header { padding: .9rem .6rem .75rem; }
+  .group-accordion:not(.open) .group-header { padding: .9rem .6rem .85rem; min-height: 170px; }
   .group-accordion:not(.open) { min-width: 155px; max-width: 185px; }
   .modal-box { margin: 0; border-radius: var(--radius-md); }
   .section-header { align-items: stretch; }
@@ -845,7 +874,7 @@ body[data-theme="dark"] .modal-input::placeholder { color: rgba(221,230,255,.52)
 
 @media (min-width: 600px) {
   .album-card-wrap { flex: 0 0 165px; }
-  .album-card      { width: 165px; height: 284px; }
+  .album-card      { width: 165px; height: 268px; }
   .album-cover     { flex: 0 0 108px; }
   .album-cover img { height: 108px; }
   .photos-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .85rem; }
@@ -854,7 +883,7 @@ body[data-theme="dark"] .modal-input::placeholder { color: rgba(221,230,255,.52)
 
 @media (min-width: 900px) {
   .album-card-wrap { flex: 0 0 185px; }
-  .album-card      { width: 185px; height: 300px; }
+  .album-card      { width: 185px; height: 282px; }
   .album-cover     { flex: 0 0 118px; }
   .album-cover img { height: 118px; }
   .photos-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
