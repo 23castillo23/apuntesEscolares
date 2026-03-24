@@ -1,0 +1,19 @@
+{
+  "name": "FotoApuntes",
+  "short_name": "FotoApuntes",
+  "description": "Guarda y organiza fotos de tus apuntes por grupos y materias.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf6f0",
+  "theme_color": "#c17f59",
+  "lang": "es-MX",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

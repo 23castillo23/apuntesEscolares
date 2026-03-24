@@ -7,7 +7,7 @@
 
 const CLOUDINARY_CLOUD = 'dwjzn6n0a';
 const CLOUDINARY_PRESET = 'escolar_unsigned';
-const DELETE_FUNCTION_URL = 'https://gilded-kataifi-894a8b.netlify.app/.netlify/functions/delete-photo';
+const DELETE_FUNCTION_URL = '/.netlify/functions/delete-photo';
 const ADMIN_PIN = '1234'; // ← cambia por tu PIN secreto
 
 /* ════════════════════════════════════════════════════════
@@ -171,6 +171,9 @@ const pinModal = document.getElementById('pinModal');
 const pinDotsContainer = document.getElementById('pinDotsContainer');
 const pinError = document.getElementById('pinError');
 const pinCancelBtn = document.getElementById('pinCancelBtn');
+const btnInstallApp = document.getElementById('btnInstallApp');
+
+let deferredInstallPrompt = null;
 
 /* ════════════════════════════════════════════════════════
    EMOJIS
@@ -203,7 +206,8 @@ function pedirPin(mensaje, callback) {
 }
 function cerrarPinModal() {
   pinModal.classList.remove('open');
-  pinEntrado = ''; pinCallback = null;
+  pinEntrado = '';
+  pinCallback = null;
   pinError.textContent = '';
   actualizarPuntos();
 }
@@ -218,7 +222,11 @@ function presionarTecla(val) {
   actualizarPuntos();
   if (pinEntrado.length === ADMIN_PIN.length) {
     setTimeout(() => {
-      if (pinEntrado === ADMIN_PIN) { cerrarPinModal(); if (pinCallback) pinCallback(); }
+      if (pinEntrado === ADMIN_PIN) {
+        const callback = pinCallback;
+        cerrarPinModal();
+        if (typeof callback === 'function') callback();
+      }
       else { pinError.textContent = '❌ PIN incorrecto.'; pinEntrado = ''; actualizarPuntos(); }
     }, 200);
   }
@@ -506,9 +514,9 @@ function renderPhotos() {
     btn.addEventListener('click', () => openComments(btn.dataset.src, btn.dataset.caption)));
   photosGrid.querySelectorAll('.btn-delete-photo').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (confirm("¿Seguro que quieres eliminar esta foto?")) {
-        eliminarFoto(btn.dataset.publicid, btn.dataset.src);
-      }
+      pedirPin('Eliminar esta foto', async () => {
+        await eliminarFoto(btn.dataset.publicid, btn.dataset.src);
+      });
     });
   });
 }
@@ -521,16 +529,17 @@ async function eliminarFoto(publicId, src) {
   if (btn) btn.textContent = '⏳';
 
   try {
-    // Llamamos a la función de Netlify pasando el publicId
     const response = await fetch(DELETE_FUNCTION_URL, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ publicId: publicId })
     });
-
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || `Error HTTP ${response.status}`);
+    }
 
     if (data.success) {
-      // Si Netlify confirma el borrado, quitamos la foto de la pantalla
       if (currentGaleria?.photos) {
         currentGaleria.photos = currentGaleria.photos.filter(p => p.publicId !== publicId);
       }
@@ -715,18 +724,39 @@ function listenComments(photoId) {
   const q = query(collection(getDB(), 'escolar_comments'), where('photoId', '==', photoId));
   commentListeners[photoId] = onSnapshot(q, snap => {
     const docs = [];
-    snap.forEach(d => docs.push(d.data()));
+    snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
     docs.sort((a, b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0));
     commentsList.innerHTML = docs.length === 0
       ? '<p class="no-comments">Sin notas aún.</p>'
       : docs.map(d => `
           <div class="comment-item">
-            <div class="comment-author">${escHtml(d.author || 'Yo')}</div>
+            <div class="comment-top-row">
+              <div class="comment-author">${escHtml(d.author || 'Yo')}</div>
+              <button class="btn-delete-comment" data-comment-id="${d.id}" title="Eliminar nota">🗑️</button>
+            </div>
             <div class="comment-text">${escHtml(d.text || '')}</div>
             <div class="comment-date">${d.createdAt?.toDate ? d.createdAt.toDate().toLocaleString('es-MX') : ''}</div>
           </div>`).join('');
     commentsList.scrollTop = commentsList.scrollHeight;
+    commentsList.querySelectorAll('.btn-delete-comment').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const commentId = btn.dataset.commentId;
+        pedirPin('Eliminar esta nota', async () => {
+          await eliminarComentarioFirebase(commentId);
+        });
+      });
+    });
   });
+}
+
+async function eliminarComentarioFirebase(commentId) {
+  if (!window._firestoreDb) return;
+  const { doc, deleteDoc } = getLib();
+  try {
+    await deleteDoc(doc(getDB(), 'escolar_comments', commentId));
+  } catch (err) {
+    alert('No se pudo eliminar la nota.');
+  }
 }
 commentsClose.addEventListener('click', closeCommentsModal);
 commentsModal.addEventListener('click', e => { if (e.target === commentsModal) closeCommentsModal(); });
@@ -825,4 +855,36 @@ initPinModal();
 waitForFirebase(() => {
   escucharGrupos();
   escucharGalerias();
+});
+
+/* ════════════════════════════════════════════════════════
+   PWA / INSTALAR APP
+════════════════════════════════════════════════════════ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (btnInstallApp) btnInstallApp.hidden = false;
+});
+
+if (btnInstallApp) {
+  btnInstallApp.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    try {
+      await deferredInstallPrompt.userChoice;
+    } catch (_) {}
+    deferredInstallPrompt = null;
+    btnInstallApp.hidden = true;
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  if (btnInstallApp) btnInstallApp.hidden = true;
 });
