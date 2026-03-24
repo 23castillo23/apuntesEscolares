@@ -172,8 +172,15 @@ const pinDotsContainer = document.getElementById('pinDotsContainer');
 const pinError = document.getElementById('pinError');
 const pinCancelBtn = document.getElementById('pinCancelBtn');
 const btnInstallApp = document.getElementById('btnInstallApp');
+const btnThemeToggle = document.getElementById('btnThemeToggle');
+const statGroups = document.getElementById('statGroups');
+const statSubjects = document.getElementById('statSubjects');
+const statPhotos = document.getElementById('statPhotos');
+const statNotes = document.getElementById('statNotes');
+const studyTipText = document.getElementById('studyTipText');
 
 let deferredInstallPrompt = null;
+let notesCount = 0;
 
 /* ════════════════════════════════════════════════════════
    EMOJIS
@@ -242,6 +249,7 @@ function initPinModal() {
    RENDER PRINCIPAL
 ════════════════════════════════════════════════════════ */
 function renderTodo() {
+  actualizarPanelEstudio();
   if (!GRUPOS.length && !GALERIAS.length) {
     emptyState.style.display = 'block';
     groupsContainer.innerHTML = '';
@@ -438,6 +446,7 @@ async function cargarConteosDeFotos() {
     cargarFotosDeGaleria(g).then(() => {
       const el = document.getElementById('count-' + g.id);
       if (el) el.textContent = `${g.photos?.length || 0} ${g.photos?.length === 1 ? 'foto' : 'fotos'}`;
+      actualizarPanelEstudio();
     });
   }
 }
@@ -849,12 +858,67 @@ function escHtml(str) {
 }
 
 /* ════════════════════════════════════════════════════════
+   PANEL EDUCATIVO + TEMA
+════════════════════════════════════════════════════════ */
+const STUDY_TIPS = [
+  'Tip: usa la regla 25/5 (Pomodoro) para mantener enfoque.',
+  'Tip: explica el tema en voz alta como si fueras el maestro.',
+  'Tip: al final de clase, escribe 3 ideas clave en una nota.',
+  'Tip: organiza por materia y fecha para encontrar todo rapido.',
+  'Tip: repasar 10 minutos hoy vale mas que 1 hora antes del examen.'
+];
+
+function actualizarPanelEstudio() {
+  if (statGroups) statGroups.textContent = String(GRUPOS.length);
+  if (statSubjects) statSubjects.textContent = String(GALERIAS.length);
+  if (statNotes) statNotes.textContent = String(notesCount);
+  if (statPhotos) {
+    const photosTotal = GALERIAS.reduce((acc, g) => acc + (g.photos?.length || 0), 0);
+    statPhotos.textContent = String(photosTotal);
+  }
+}
+
+function initStudyTip() {
+  if (!studyTipText) return;
+  const idx = new Date().getDate() % STUDY_TIPS.length;
+  studyTipText.textContent = STUDY_TIPS[idx];
+}
+
+function initThemeToggle() {
+  const storedTheme = localStorage.getItem('escolar_theme') || 'light';
+  document.body.setAttribute('data-theme', storedTheme);
+  if (btnThemeToggle) btnThemeToggle.textContent = storedTheme === 'dark' ? '☀️' : '🌙';
+
+  if (!btnThemeToggle) return;
+  btnThemeToggle.addEventListener('click', () => {
+    const current = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.body.setAttribute('data-theme', next);
+    localStorage.setItem('escolar_theme', next);
+    btnThemeToggle.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+}
+
+function escucharConteoNotas() {
+  if (!window._firestoreDb) return;
+  const { collection, onSnapshot } = getLib();
+  onSnapshot(collection(getDB(), 'escolar_comments'), snap => {
+    notesCount = snap.size || 0;
+    actualizarPanelEstudio();
+  });
+}
+
+/* ════════════════════════════════════════════════════════
    ARRANQUE — esperar Firebase y escuchar colecciones
 ════════════════════════════════════════════════════════ */
 initPinModal();
+initThemeToggle();
+initStudyTip();
 waitForFirebase(() => {
   escucharGrupos();
   escucharGalerias();
+  escucharConteoNotas();
+  actualizarPanelEstudio();
 });
 
 /* ════════════════════════════════════════════════════════

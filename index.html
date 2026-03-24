@@ -23,14 +23,28 @@
 
   <header class="header">
     <div class="header-inner">
+      <div class="top-actions">
+        <button class="btn-top-action btn-dark-toggle" id="btnThemeToggle" title="Cambiar tema">
+          🌙
+        </button>
+        <button class="btn-top-action btn-install-app" id="btnInstallApp" hidden>Instalar</button>
+      </div>
       <div class="header-icon">📸</div>
       <h1 class="logo">FotoApuntes</h1>
       <p class="tagline">Álbum Escolar · Fotos de clase</p>
-      <button class="btn-install-app" id="btnInstallApp" hidden>Instalar app</button>
     </div>
   </header>
 
   <main class="main">
+    <section class="study-panel">
+      <div class="study-stats">
+        <div class="study-chip"><span>📁 Grupos</span><strong id="statGroups">0</strong></div>
+        <div class="study-chip"><span>📚 Materias</span><strong id="statSubjects">0</strong></div>
+        <div class="study-chip"><span>🖼️ Fotos</span><strong id="statPhotos">0</strong></div>
+        <div class="study-chip"><span>📝 Notas</span><strong id="statNotes">0</strong></div>
+      </div>
+      <p class="study-tip" id="studyTipText">Tip: repasa en bloques de 25 minutos con descansos cortos.</p>
+    </section>
 
     <section class="albums-section" id="albumsSection">
       <div class="section-header">
