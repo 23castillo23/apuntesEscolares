@@ -820,6 +820,19 @@ body[data-theme="dark"] .modal-input::placeholder { color: rgba(221,230,255,.52)
 }
 .no-comments    { text-align: center; color: var(--brown-xlight); font-size: .875rem; padding: .75rem 0; }
 
+body[data-theme="dark"] .glass-box {
+  background: rgba(11, 22, 52, .94);
+  border-color: rgba(164, 181, 255, .28);
+}
+body[data-theme="dark"] .comment-item {
+  background: rgba(250, 252, 255, .98);
+  border: 1px solid rgba(21, 36, 73, .12);
+}
+body[data-theme="dark"] .comment-author { color: #23335f; }
+body[data-theme="dark"] .comment-text { color: #2f4378; }
+body[data-theme="dark"] .comment-date { color: #5873b6; }
+body[data-theme="dark"] .no-comments { color: #dbe6ff; }
+
 /* ═══════════════════════════════
    PIN MODAL
 ═══════════════════════════════ */

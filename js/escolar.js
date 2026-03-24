@@ -64,7 +64,7 @@ function escucharGrupos() {
 async function crearGrupo(name, icon) {
   const { collection, addDoc, serverTimestamp } = getLib();
   await addDoc(collection(getDB(), 'fa_grupos'), {
-    name, icon, open: true, coverImage: '', createdAt: serverTimestamp()
+    name, icon, coverImage: '', createdAt: serverTimestamp()
   });
 }
 
@@ -86,9 +86,29 @@ async function eliminarGrupoFirebase(id) {
   }
 }
 
-async function toggleGrupoOpen(id, open) {
-  const { doc, updateDoc } = getLib();
-  await updateDoc(doc(getDB(), 'fa_grupos', id), { open });
+function toggleGrupoOpen(id, open) {
+  if (open) openGroupIds.add(id);
+  else openGroupIds.delete(id);
+  saveOpenGroupsState();
+}
+
+function loadOpenGroupsState() {
+  try {
+    const raw = localStorage.getItem(GROUPS_OPEN_STORAGE_KEY);
+    const parsed = JSON.parse(raw || '[]');
+    openGroupIds = new Set(Array.isArray(parsed) ? parsed : []);
+  } catch (_) {
+    openGroupIds = new Set();
+  }
+}
+
+function saveOpenGroupsState() {
+  localStorage.setItem(GROUPS_OPEN_STORAGE_KEY, JSON.stringify([...openGroupIds]));
+}
+
+function isGroupOpen(groupId) {
+  if (openGroupIds.size === 0 && !localStorage.getItem(GROUPS_OPEN_STORAGE_KEY)) return true;
+  return openGroupIds.has(groupId);
 }
 
 /* ════════════════════════════════════════════════════════
@@ -193,6 +213,8 @@ const subjectCommentsText = document.getElementById('subjectCommentsText');
 let deferredInstallPrompt = null;
 let currentSubjectCommentsId = null;
 let subjectCommentsUnsub = null;
+const GROUPS_OPEN_STORAGE_KEY = 'escolar_open_groups';
+let openGroupIds = new Set();
 
 /* ════════════════════════════════════════════════════════
    EMOJIS
@@ -277,7 +299,7 @@ function renderTodo() {
       const groupMatches = !search || (grupo.name || '').toLowerCase().includes(search);
       const subjectMatches = materias.some(m => (m.name || '').toLowerCase().includes(search));
       if (search && !groupMatches && !subjectMatches) return;
-      const isOpen = grupo.open !== false;
+      const isOpen = isGroupOpen(grupo.id);
       const primeraCover = grupo.coverImage || materias.find(m => m.coverImage)?.coverImage || '';
       html += `
       <div class="group-accordion ${isOpen ? 'open' : ''}" data-group-id="${grupo.id}">
@@ -344,8 +366,7 @@ function renderTodo() {
 }
 
 function albumCardHTML(g) {
-  const grupo = GRUPOS.find(gr => gr.id === g.groupId);
-  const notesTitle = grupo ? `Notas de ${escHtml(grupo.name)}` : `Notas de ${escHtml(g.name)}`;
+  const notesTitle = `Notas de ${escHtml(g.name)}`;
   return `
     <div class="album-card-wrap">
       <article class="album-card" data-id="${g.id}" tabindex="0">
@@ -480,7 +501,7 @@ function attachGroupEvents() {
       e.stopPropagation();
       const groupId = btn.dataset.groupNotes;
       const groupName = btn.dataset.groupName || 'Grupo';
-      openSubjectComments(`group_${groupId}`, `Notas · ${groupName}`);
+      openSubjectComments(`group_${groupId}`, `Notas del grupo: ${groupName}`);
     });
   });
 }
@@ -1087,6 +1108,7 @@ function initFilters() {
 initPinModal();
 initThemeToggle();
 initFilters();
+loadOpenGroupsState();
 waitForFirebase(() => {
   escucharGrupos();
   escucharGalerias();
