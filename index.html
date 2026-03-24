@@ -23,12 +23,6 @@
 
   <header class="header">
     <div class="header-inner">
-      <div class="top-actions">
-        <button class="btn-top-action btn-dark-toggle" id="btnThemeToggle" title="Cambiar tema">
-          🌙
-        </button>
-        <button class="btn-top-action btn-install-app" id="btnInstallApp" hidden>Instalar</button>
-      </div>
       <div class="header-icon">📸</div>
       <h1 class="logo">FotoApuntes</h1>
       <p class="tagline">Álbum Escolar · Fotos de clase</p>
@@ -36,14 +30,16 @@
   </header>
 
   <main class="main">
-    <section class="study-panel">
-      <div class="study-stats">
-        <div class="study-chip"><span>📁 Grupos</span><strong id="statGroups">0</strong></div>
-        <div class="study-chip"><span>📚 Materias</span><strong id="statSubjects">0</strong></div>
-        <div class="study-chip"><span>🖼️ Fotos</span><strong id="statPhotos">0</strong></div>
-        <div class="study-chip"><span>📝 Notas</span><strong id="statNotes">0</strong></div>
+    <section class="discover-toolbar">
+      <div class="toolbar-pill">
+        <button class="toolbar-btn" id="btnThemeToggle" title="Cambiar tema">🌙</button>
+        <button class="toolbar-btn toolbar-install" id="btnInstallApp" hidden>Instalar</button>
       </div>
-      <p class="study-tip" id="studyTipText">Tip: repasa en bloques de 25 minutos con descansos cortos.</p>
+      <div class="list-switch">
+        <button class="switch-btn active" id="btnViewGroups">Grupos</button>
+        <button class="switch-btn" id="btnViewSubjects">Materias</button>
+      </div>
+      <input type="search" id="globalSearch" class="global-search" placeholder="Buscar grupo o materia...">
     </section>
 
     <section class="albums-section" id="albumsSection">
@@ -139,6 +135,20 @@
       <form class="comments-form" id="commentsForm">
         <input type="text" id="commentsAuthor" class="modal-input" placeholder="Tu nombre (opcional)">
         <textarea id="commentsText" class="modal-input modal-textarea" placeholder="Escribe una nota…" required></textarea>
+        <button type="submit" class="btn-primary">Guardar nota</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: COMENTARIOS DE MATERIA -->
+  <div class="modal-overlay" id="subjectCommentsModal">
+    <div class="modal-box comments-box glass-box">
+      <button class="modal-close" id="subjectCommentsClose">&times;</button>
+      <h3 class="modal-title" id="subjectCommentsTitle">Notas de materia</h3>
+      <div class="comments-list" id="subjectCommentsList"></div>
+      <form class="comments-form" id="subjectCommentsForm">
+        <input type="text" id="subjectCommentsAuthor" class="modal-input" placeholder="Tu nombre (opcional)">
+        <textarea id="subjectCommentsText" class="modal-input modal-textarea" placeholder="Escribe una nota para esta materia..." required></textarea>
         <button type="submit" class="btn-primary">Guardar nota</button>
       </form>
     </div>

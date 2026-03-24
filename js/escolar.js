@@ -7,7 +7,10 @@
 
 const CLOUDINARY_CLOUD = 'dwjzn6n0a';
 const CLOUDINARY_PRESET = 'escolar_unsigned';
-const DELETE_FUNCTION_URL = '/.netlify/functions/delete-photo';
+const NETLIFY_FUNCTION_BASE = 'https://gilded-kataifi-894a8b.netlify.app';
+const DELETE_FUNCTION_URL = location.hostname.includes('github.io')
+  ? `${NETLIFY_FUNCTION_BASE}/.netlify/functions/delete-photo`
+  : '/.netlify/functions/delete-photo';
 const ADMIN_PIN = '1234'; // ← cambia por tu PIN secreto
 
 /* ════════════════════════════════════════════════════════
@@ -26,6 +29,8 @@ let selectedEmoji = '📚';
 let selectedGroupEmoji = '📁';
 let pinCallback = null;
 let pinEntrado = '';
+let currentView = 'groups';
+let searchTerm = '';
 let isPanning = false, startX = 0, startY = 0, panX = 0, panY = 0, startPX = 0, startPY = 0;
 let currentZoom = 1;
 const MIN_ZOOM = 1, MAX_ZOOM = 3, ZOOM_STEP = 0.25;
@@ -121,6 +126,7 @@ async function eliminarGaleriaFirebase(id) {
    DOM
 ════════════════════════════════════════════════════════ */
 const albumsSection = document.getElementById('albumsSection');
+const sectionTitle = document.querySelector('.section-title');
 const groupsContainer = document.getElementById('groupsContainer');
 const emptyState = document.getElementById('emptyState');
 const gallerySection = document.getElementById('gallerySection');
@@ -173,14 +179,20 @@ const pinError = document.getElementById('pinError');
 const pinCancelBtn = document.getElementById('pinCancelBtn');
 const btnInstallApp = document.getElementById('btnInstallApp');
 const btnThemeToggle = document.getElementById('btnThemeToggle');
-const statGroups = document.getElementById('statGroups');
-const statSubjects = document.getElementById('statSubjects');
-const statPhotos = document.getElementById('statPhotos');
-const statNotes = document.getElementById('statNotes');
-const studyTipText = document.getElementById('studyTipText');
+const btnViewGroups = document.getElementById('btnViewGroups');
+const btnViewSubjects = document.getElementById('btnViewSubjects');
+const globalSearch = document.getElementById('globalSearch');
+const subjectCommentsModal = document.getElementById('subjectCommentsModal');
+const subjectCommentsClose = document.getElementById('subjectCommentsClose');
+const subjectCommentsTitle = document.getElementById('subjectCommentsTitle');
+const subjectCommentsList = document.getElementById('subjectCommentsList');
+const subjectCommentsForm = document.getElementById('subjectCommentsForm');
+const subjectCommentsAuthor = document.getElementById('subjectCommentsAuthor');
+const subjectCommentsText = document.getElementById('subjectCommentsText');
 
 let deferredInstallPrompt = null;
-let notesCount = 0;
+let currentSubjectCommentsId = null;
+let subjectCommentsUnsub = null;
 
 /* ════════════════════════════════════════════════════════
    EMOJIS
@@ -249,7 +261,8 @@ function initPinModal() {
    RENDER PRINCIPAL
 ════════════════════════════════════════════════════════ */
 function renderTodo() {
-  actualizarPanelEstudio();
+  const search = searchTerm.trim().toLowerCase();
+  groupsContainer.classList.toggle('subjects-list', currentView === 'subjects');
   if (!GRUPOS.length && !GALERIAS.length) {
     emptyState.style.display = 'block';
     groupsContainer.innerHTML = '';
@@ -258,12 +271,15 @@ function renderTodo() {
   emptyState.style.display = 'none';
   let html = '';
 
-  GRUPOS.forEach(grupo => {
-    const materias = GALERIAS.filter(g => g.groupId === grupo.id);
-    const isOpen = grupo.open !== false;
-    // Buscar imagen de portada del primer álbum del grupo
-    const primeraCover = materias.find(m => m.coverImage)?.coverImage || '';
-    html += `
+  if (currentView === 'groups') {
+    GRUPOS.forEach(grupo => {
+      const materias = GALERIAS.filter(g => g.groupId === grupo.id);
+      const groupMatches = !search || (grupo.name || '').toLowerCase().includes(search);
+      const subjectMatches = materias.some(m => (m.name || '').toLowerCase().includes(search));
+      if (search && !groupMatches && !subjectMatches) return;
+      const isOpen = grupo.open !== false;
+      const primeraCover = materias.find(m => m.coverImage)?.coverImage || '';
+      html += `
       <div class="group-accordion ${isOpen ? 'open' : ''}" data-group-id="${grupo.id}">
         <div class="group-header" data-group-id="${grupo.id}">
           ${primeraCover ? `<div class="group-header-bg" style="background-image:url('${primeraCover}')"></div>` : ''}
@@ -294,10 +310,22 @@ function renderTodo() {
           </button>
         </div>
       </div>`;
-  });
+    });
+  } else {
+    const materiasFiltradas = GALERIAS.filter(g => !search || (g.name || '').toLowerCase().includes(search));
+    html = `<div class="ungrouped-section">
+      <div class="carousel-wrap">
+        <div class="albums-carousel">
+          ${materiasFiltradas.length ? materiasFiltradas.map(m => albumCardHTML(m)).join('') : '<p class="carousel-empty">No hay materias con ese nombre.</p>'}
+        </div>
+      </div>
+    </div>`;
+  }
 
-  const sinGrupo = GALERIAS.filter(g => !g.groupId || !GRUPOS.find(gr => gr.id === g.groupId));
-  if (sinGrupo.length > 0) {
+  const sinGrupo = GALERIAS.filter(g =>
+    (!g.groupId || !GRUPOS.find(gr => gr.id === g.groupId)) &&
+    (!search || (g.name || '').toLowerCase().includes(search)));
+  if (currentView === 'groups' && sinGrupo.length > 0) {
     html += `<div class="ungrouped-section">
       <p class="ungrouped-title">Sin grupo</p>
       <div class="carousel-wrap">
@@ -312,6 +340,8 @@ function renderTodo() {
 }
 
 function albumCardHTML(g) {
+  const grupo = GRUPOS.find(gr => gr.id === g.groupId);
+  const notesTitle = grupo ? `Notas de ${escHtml(grupo.name)}` : `Notas de ${escHtml(g.name)}`;
   return `
     <div class="album-card-wrap">
       <article class="album-card" data-id="${g.id}" tabindex="0">
@@ -326,6 +356,10 @@ function albumCardHTML(g) {
           <h3 class="album-name">${escHtml(g.name)}</h3>
           <p class="album-count" id="count-${g.id}">…</p>
           <p class="album-tag">#${escHtml(g.cloudinaryTag)}</p>
+        </div>
+        <div class="album-actions">
+          <button class="album-action-btn" data-open-materia="${g.id}">Abrir</button>
+          <button class="album-action-btn primary" data-open-subject-notes="${g.id}" data-notes-title="${notesTitle}">Notas</button>
         </div>
       </article>
       <button class="materia-delete" data-id="${g.id}" title="Eliminar materia">
@@ -400,9 +434,24 @@ function attachGroupEvents() {
 
   groupsContainer.querySelectorAll('.album-card').forEach(card => {
     const open = () => openGaleria(card.dataset.id);
-    card.addEventListener('click', open);
+    card.addEventListener('click', e => {
+      if (e.target.closest('.album-action-btn') || e.target.closest('.materia-delete')) return;
+      open();
+    });
     card.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+  });
+  groupsContainer.querySelectorAll('[data-open-materia]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openGaleria(btn.dataset.openMateria);
+    });
+  });
+  groupsContainer.querySelectorAll('[data-open-subject-notes]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openSubjectComments(btn.dataset.openSubjectNotes, btn.dataset.notesTitle || 'Notas de materia');
     });
   });
 
@@ -446,7 +495,6 @@ async function cargarConteosDeFotos() {
     cargarFotosDeGaleria(g).then(() => {
       const el = document.getElementById('count-' + g.id);
       if (el) el.textContent = `${g.photos?.length || 0} ${g.photos?.length === 1 ? 'foto' : 'fotos'}`;
-      actualizarPanelEstudio();
     });
   }
 }
@@ -545,6 +593,9 @@ async function eliminarFoto(publicId, src) {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
+      if (response.status === 405) {
+        throw new Error('Endpoint de borrado no disponible en este dominio. Verifica Netlify Functions.');
+      }
       throw new Error(data.error || `Error HTTP ${response.status}`);
     }
 
@@ -783,6 +834,84 @@ commentsForm.addEventListener('submit', async e => {
 });
 
 /* ════════════════════════════════════════════════════════
+   COMENTARIOS DE MATERIA / GRUPO (VISTA CRISTAL)
+════════════════════════════════════════════════════════ */
+function openSubjectComments(subjectId, title) {
+  if (!subjectCommentsModal) return;
+  currentSubjectCommentsId = subjectId;
+  if (subjectCommentsTitle) subjectCommentsTitle.textContent = title || 'Notas de materia';
+  subjectCommentsList.innerHTML = '<p class="no-comments">Cargando…</p>';
+  subjectCommentsModal.classList.add('open');
+  listenSubjectComments(subjectId);
+}
+
+function closeSubjectCommentsModal() {
+  if (!subjectCommentsModal) return;
+  subjectCommentsModal.classList.remove('open');
+  if (subjectCommentsUnsub) { subjectCommentsUnsub(); subjectCommentsUnsub = null; }
+  currentSubjectCommentsId = null;
+}
+
+function listenSubjectComments(subjectId) {
+  if (!window._firestoreDb) {
+    subjectCommentsList.innerHTML = '<p class="no-comments">Firebase no conectado.</p>';
+    return;
+  }
+  const { collection, query, where, onSnapshot, doc, deleteDoc } = getLib();
+  if (subjectCommentsUnsub) subjectCommentsUnsub();
+  const q = query(collection(getDB(), 'escolar_subject_comments'), where('subjectId', '==', subjectId));
+  subjectCommentsUnsub = onSnapshot(q, snap => {
+    const docs = [];
+    snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
+    docs.sort((a, b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0));
+    subjectCommentsList.innerHTML = docs.length === 0
+      ? '<p class="no-comments">Sin notas aún.</p>'
+      : docs.map(d => `
+          <div class="comment-item">
+            <div class="comment-top-row">
+              <div class="comment-author">${escHtml(d.author || 'Yo')}</div>
+              <button class="btn-delete-comment" data-subject-comment-id="${d.id}">🗑️</button>
+            </div>
+            <div class="comment-text">${escHtml(d.text || '')}</div>
+            <div class="comment-date">${d.createdAt?.toDate ? d.createdAt.toDate().toLocaleString('es-MX') : ''}</div>
+          </div>`).join('');
+    subjectCommentsList.querySelectorAll('[data-subject-comment-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const commentId = btn.dataset.subjectCommentId;
+        pedirPin('Eliminar nota de materia', async () => {
+          await deleteDoc(doc(getDB(), 'escolar_subject_comments', commentId));
+        });
+      });
+    });
+  });
+}
+
+if (subjectCommentsClose) subjectCommentsClose.addEventListener('click', closeSubjectCommentsModal);
+if (subjectCommentsModal) {
+  subjectCommentsModal.addEventListener('click', e => {
+    if (e.target === subjectCommentsModal) closeSubjectCommentsModal();
+  });
+}
+if (subjectCommentsForm) {
+  subjectCommentsForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!window._firestoreDb || !currentSubjectCommentsId) return;
+    const { collection, addDoc, serverTimestamp } = getLib();
+    const author = subjectCommentsAuthor.value.trim() || 'Yo';
+    const text = subjectCommentsText.value.trim();
+    if (!text) return;
+    try {
+      await addDoc(collection(getDB(), 'escolar_subject_comments'), {
+        subjectId: currentSubjectCommentsId, author, text, createdAt: serverTimestamp()
+      });
+      subjectCommentsText.value = '';
+    } catch (_) {
+      alert('No se pudo guardar la nota.');
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════
    MODAL: NUEVO GRUPO
 ════════════════════════════════════════════════════════ */
 function openNewGroupModal() {
@@ -858,30 +987,12 @@ function escHtml(str) {
 }
 
 /* ════════════════════════════════════════════════════════
-   PANEL EDUCATIVO + TEMA
+   FILTROS + TEMA
 ════════════════════════════════════════════════════════ */
-const STUDY_TIPS = [
-  'Tip: usa la regla 25/5 (Pomodoro) para mantener enfoque.',
-  'Tip: explica el tema en voz alta como si fueras el maestro.',
-  'Tip: al final de clase, escribe 3 ideas clave en una nota.',
-  'Tip: organiza por materia y fecha para encontrar todo rapido.',
-  'Tip: repasar 10 minutos hoy vale mas que 1 hora antes del examen.'
-];
-
-function actualizarPanelEstudio() {
-  if (statGroups) statGroups.textContent = String(GRUPOS.length);
-  if (statSubjects) statSubjects.textContent = String(GALERIAS.length);
-  if (statNotes) statNotes.textContent = String(notesCount);
-  if (statPhotos) {
-    const photosTotal = GALERIAS.reduce((acc, g) => acc + (g.photos?.length || 0), 0);
-    statPhotos.textContent = String(photosTotal);
-  }
-}
-
-function initStudyTip() {
-  if (!studyTipText) return;
-  const idx = new Date().getDate() % STUDY_TIPS.length;
-  studyTipText.textContent = STUDY_TIPS[idx];
+function updateViewButtons() {
+  if (btnViewGroups) btnViewGroups.classList.toggle('active', currentView === 'groups');
+  if (btnViewSubjects) btnViewSubjects.classList.toggle('active', currentView === 'subjects');
+  if (sectionTitle) sectionTitle.textContent = currentView === 'groups' ? 'Mis Grupos' : 'Mis Materias';
 }
 
 function initThemeToggle() {
@@ -899,13 +1010,28 @@ function initThemeToggle() {
   });
 }
 
-function escucharConteoNotas() {
-  if (!window._firestoreDb) return;
-  const { collection, onSnapshot } = getLib();
-  onSnapshot(collection(getDB(), 'escolar_comments'), snap => {
-    notesCount = snap.size || 0;
-    actualizarPanelEstudio();
-  });
+function initFilters() {
+  updateViewButtons();
+  if (btnViewGroups) {
+    btnViewGroups.addEventListener('click', () => {
+      currentView = 'groups';
+      updateViewButtons();
+      renderTodo();
+    });
+  }
+  if (btnViewSubjects) {
+    btnViewSubjects.addEventListener('click', () => {
+      currentView = 'subjects';
+      updateViewButtons();
+      renderTodo();
+    });
+  }
+  if (globalSearch) {
+    globalSearch.addEventListener('input', () => {
+      searchTerm = globalSearch.value || '';
+      renderTodo();
+    });
+  }
 }
 
 /* ════════════════════════════════════════════════════════
@@ -913,12 +1039,10 @@ function escucharConteoNotas() {
 ════════════════════════════════════════════════════════ */
 initPinModal();
 initThemeToggle();
-initStudyTip();
+initFilters();
 waitForFirebase(() => {
   escucharGrupos();
   escucharGalerias();
-  escucharConteoNotas();
-  actualizarPanelEstudio();
 });
 
 /* ════════════════════════════════════════════════════════
