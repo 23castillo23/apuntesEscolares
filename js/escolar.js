@@ -517,53 +517,32 @@ function renderPhotos() {
    ELIMINAR FOTO (DIRECTO A CLOUDINARY - CON RASTREADORES)
 ════════════════════════════════════════════════════════ */
 async function eliminarFoto(publicId, src) {
-  console.log("1. Iniciando eliminación para:", publicId);
   const btn = photosGrid.querySelector(`[data-publicid="${publicId}"]`);
   if (btn) btn.textContent = '⏳';
 
-  const cloudName = 'dwjzn6n0a';
-  const apiKey    = '658928118369874';
-  const apiSecret = 'wyCuV2e8I9co9Ur2dq1K2hAx_N4'; 
-
-  const timestamp = Math.round(new Date().getTime() / 1000);
-  // IMPORTANTE: Sin espacios y en este orden exacto
-  const stringToSign = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
-  
   try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(stringToSign);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-    const formData = new FormData();
-    formData.append('public_id', publicId);
-    formData.append('signature', signature);
-    formData.append('api_key', apiKey);
-    formData.append('timestamp', timestamp);
-
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
+    // Llamamos a la función de Netlify pasando el publicId
+    const response = await fetch(DELETE_FUNCTION_URL, {
       method: 'POST',
-      body: formData
+      body: JSON.stringify({ publicId: publicId })
     });
-    
-    const dataRes = await res.json();
-    console.log("5. Respuesta de Cloudinary:", dataRes);
 
-    if (dataRes.result === 'ok') {
+    const data = await response.json();
+
+    if (data.success) {
+      // Si Netlify confirma el borrado, quitamos la foto de la pantalla
       if (currentGaleria?.photos) {
-        currentGaleria.photos = currentGaleria.photos.filter(p => p.src !== src);
+        currentGaleria.photos = currentGaleria.photos.filter(p => p.publicId !== publicId);
       }
       renderPhotos();
-      alert("¡Foto eliminada con éxito!");
+      alert("¡Foto eliminada de Cloudinary!");
     } else {
-      throw new Error(dataRes.error?.message || 'Error desconocido');
+      throw new Error(data.error || "No se pudo borrar");
     }
-
-  } catch(err) {
-    console.error('ERROR:', err);
-    alert('Fallo: ' + err.message);
-    renderPhotos(); 
+  } catch (err) {
+    console.error("Error en Netlify:", err);
+    alert("Error: " + err.message);
+    renderPhotos(); // Restauramos el icono si falla
   }
 }
 
