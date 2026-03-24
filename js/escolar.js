@@ -517,64 +517,53 @@ function renderPhotos() {
    ELIMINAR FOTO (DIRECTO A CLOUDINARY - CON RASTREADORES)
 ════════════════════════════════════════════════════════ */
 async function eliminarFoto(publicId, src) {
-  console.log("1. Iniciando eliminación para la foto:", publicId);
-
+  console.log("1. Iniciando eliminación para:", publicId);
   const btn = photosGrid.querySelector(`[data-publicid="${publicId}"]`);
   if (btn) btn.textContent = '⏳';
 
   const cloudName = 'dwjzn6n0a';
-  const apiKey = '658928118369874';
-  const apiSecret = 'wyCuV2e8I9co9Ur2dq1K2hAx_N4';
+  const apiKey    = '658928118369874';
+  const apiSecret = 'wyCuV2e8I9co9Ur2dq1K2hAx_N4'; 
 
   const timestamp = Math.round(new Date().getTime() / 1000);
+  // IMPORTANTE: Sin espacios y en este orden exacto
   const stringToSign = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
-  console.log("2. Todo listo para firmar seguridad");
-
+  
   try {
     const encoder = new TextEncoder();
     const data = encoder.encode(stringToSign);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    console.log("3. Firma matemática generada");
 
     const formData = new FormData();
     formData.append('public_id', publicId);
-    formData.append('timestamp', timestamp);
-    formData.append('api_key', apiKey);
     formData.append('signature', signature);
+    formData.append('api_key', apiKey);
+    formData.append('timestamp', timestamp);
 
-    console.log("4. Enviando la orden de destruir a Cloudinary...");
     const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
       method: 'POST',
       body: formData
     });
-
+    
     const dataRes = await res.json();
-    console.log("5. Respuesta exacta de Cloudinary:", dataRes);
+    console.log("5. Respuesta de Cloudinary:", dataRes);
 
-    if (!res.ok || dataRes.result !== 'ok') {
-      throw new Error(dataRes.error?.message || `Cloudinary devolvió: ${dataRes.result}`);
+    if (dataRes.result === 'ok') {
+      if (currentGaleria?.photos) {
+        currentGaleria.photos = currentGaleria.photos.filter(p => p.src !== src);
+      }
+      renderPhotos();
+      alert("¡Foto eliminada con éxito!");
+    } else {
+      throw new Error(dataRes.error?.message || 'Error desconocido');
     }
 
-    console.log("6. ¡Éxito! Borrando la foto de la pantalla...");
-    if (currentGaleria?.photos) {
-      currentGaleria.photos = currentGaleria.photos.filter(p => p.src !== src);
-    }
-
-    if (currentGaleria && currentGaleria.coverImage === src) {
-      const newCover = currentGaleria.photos[0]?.src || '';
-      const { doc, updateDoc } = getLib();
-      await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: newCover });
-    }
-
-    renderPhotos();
-    alert("¡Foto eliminada correctamente!");
-
-  } catch (err) {
-    console.error('7. ERROR DETECTADO:', err);
-    alert('Fallo al eliminar. Revisa la consola. Detalle: ' + err.message);
-    renderPhotos();
+  } catch(err) {
+    console.error('ERROR:', err);
+    alert('Fallo: ' + err.message);
+    renderPhotos(); 
   }
 }
 
