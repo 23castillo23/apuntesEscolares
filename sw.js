@@ -1,11 +1,11 @@
-const CACHE_NAME = 'fotoapuntes-shell-v1';
+const CACHE_NAME = 'fotoapuntes-shell-v2';
 const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/css/style.css',
-  '/js/escolar.js',
-  '/manifest.webmanifest',
-  '/icons/icon.svg'
+  './',
+  './index.html',
+  './css/style.css',
+  './js/escolar.js',
+  './manifest.webmanifest',
+  './icons/icon.svg'
 ];
 
 self.addEventListener('install', (event) => {

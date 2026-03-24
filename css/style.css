@@ -162,11 +162,20 @@ body[data-theme="dark"] .bg-gradient {
   font-family: var(--font-body);
   font-size: .9rem;
 }
+.global-search::placeholder { color: rgba(86,98,128,.7); }
+.global-search::-webkit-search-cancel-button { filter: none; cursor: pointer; }
 .global-search:focus {
   outline: none;
   border-color: #6253e8;
   box-shadow: 0 0 0 3px rgba(98,83,232,.18);
 }
+body[data-theme="dark"] .global-search {
+  background: #111a34;
+  border-color: rgba(168,183,255,.35);
+  color: #eef3ff;
+}
+body[data-theme="dark"] .global-search::placeholder { color: rgba(219,229,255,.55); }
+body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: invert(1) saturate(0); }
 
 /* ═══════════════════════════════
    SECCIÓN GRUPOS Y MATERIAS
@@ -383,7 +392,7 @@ body[data-theme="dark"] .bg-gradient {
   flex: 0 0 150px; scroll-snap-align: start; position: relative;
 }
 .album-card {
-  width: 165px; height: 276px; /* tamaño fijo siempre */
+  width: 165px; height: 284px; /* tamaño fijo siempre */
   background: var(--warm-white);
   border-radius: var(--radius-md); overflow: hidden;
   box-shadow: 0 9px 24px var(--shadow);
@@ -634,7 +643,7 @@ body[data-theme="dark"] .bg-gradient {
 .btn-like        { color: var(--terra-dark); }
 .btn-like .heart { font-size: .95rem; }
 .btn-comments    { color: var(--brown-light); }
-.btn-set-cover { color: var(--terra-dark); font-weight: 600; }
+.btn-set-cover { color: var(--terra-dark); font-weight: 700; min-width: 1.6rem; justify-content: center; }
 .btn-delete-photo {
   border: none; background: transparent; cursor: pointer;
   padding: .12rem .2rem; color: #c0392b; border-radius: 4px;
@@ -713,9 +722,17 @@ body[data-theme="dark"] .bg-gradient {
   width: 100%; font-family: var(--font-body); font-size: .9rem;
   padding: .5rem .65rem; margin-bottom: .8rem;
   border: 1px solid rgba(61,50,41,.2); border-radius: var(--radius-sm);
-  background: #fffef9; color: var(--brown); outline: none;
+  background: #fffef9; color: #1f2a45; outline: none;
 }
+.modal-input::placeholder { color: rgba(71,84,114,.55); }
+.modal-input:disabled { opacity: .7; cursor: not-allowed; }
 .modal-input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(201,169,98,.2); }
+body[data-theme="dark"] .modal-input {
+  background: #0f1a34;
+  color: #eef3ff;
+  border-color: rgba(175,188,255,.38);
+}
+body[data-theme="dark"] .modal-input::placeholder { color: rgba(221,230,255,.52); }
 .modal-textarea { resize: vertical; min-height: 72px; }
 .modal-hint { font-size: .74rem; color: var(--brown-xlight); margin-top: -.55rem; margin-bottom: .85rem; }
 .modal-actions { display: flex; gap: .6rem; margin-top: .4rem; }
@@ -809,7 +826,7 @@ body[data-theme="dark"] .bg-gradient {
   .photo-img-wrap { height: 130px; }
   .btn-delete-photo { opacity: 1; }
   .album-card-wrap { flex: 0 0 145px; }
-  .album-card      { width: 145px; height: 258px; }
+  .album-card      { width: 145px; height: 266px; }
   .album-cover     { flex: 0 0 98px; }
   .album-cover img { height: 98px; }
   .upload-meta { flex-direction: column; }
@@ -828,7 +845,7 @@ body[data-theme="dark"] .bg-gradient {
 
 @media (min-width: 600px) {
   .album-card-wrap { flex: 0 0 165px; }
-  .album-card      { width: 165px; height: 276px; }
+  .album-card      { width: 165px; height: 284px; }
   .album-cover     { flex: 0 0 108px; }
   .album-cover img { height: 108px; }
   .photos-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .85rem; }
@@ -837,7 +854,7 @@ body[data-theme="dark"] .bg-gradient {
 
 @media (min-width: 900px) {
   .album-card-wrap { flex: 0 0 185px; }
-  .album-card      { width: 185px; height: 292px; }
+  .album-card      { width: 185px; height: 300px; }
   .album-cover     { flex: 0 0 118px; }
   .album-cover img { height: 118px; }
   .photos-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }

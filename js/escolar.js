@@ -360,7 +360,6 @@ function albumCardHTML(g) {
         <div class="album-actions">
           <button class="album-action-btn" data-open-materia="${g.id}">Abrir</button>
           <button class="album-action-btn primary" data-open-subject-notes="${g.id}" data-notes-title="${notesTitle}">Notas</button>
-          <button class="album-action-btn" data-set-group-cover="${g.id}" title="Usar portada de esta materia para su grupo">Portada grupo</button>
         </div>
       </article>
       <button class="materia-delete" data-id="${g.id}" title="Eliminar materia">
@@ -453,16 +452,6 @@ function attachGroupEvents() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       openSubjectComments(btn.dataset.openSubjectNotes, btn.dataset.notesTitle || 'Notas de materia');
-    });
-  });
-  groupsContainer.querySelectorAll('[data-set-group-cover]').forEach(btn => {
-    btn.addEventListener('click', async e => {
-      e.stopPropagation();
-      const materiaId = btn.dataset.setGroupCover;
-      const materia = GALERIAS.find(g => g.id === materiaId);
-      if (!materia?.groupId) { alert('Esta materia no está dentro de un grupo.'); return; }
-      if (!materia.coverImage) { alert('Esta materia aún no tiene portada. Elige una foto como portada primero.'); return; }
-      await establecerPortadaGrupoDesdeMateria(materia.groupId, materia.coverImage);
     });
   });
 
@@ -561,7 +550,7 @@ function renderPhotos() {
           <span class="like-count" id="likes-${p.id}">0</span>
         </button>
         <button class="btn-comments" data-src="${p.src}" data-caption="${escHtml(p.caption)}">💬 Notas</button>
-        <button class="btn-set-cover" data-src="${p.src}" title="Usar como portada">⭐ Portada</button>
+        <button class="btn-set-cover" data-src="${p.src}" title="Usar como portada de materia y grupo" aria-label="Usar como portada">⭐</button>
         <button class="btn-delete-photo" data-publicid="${p.publicId}" data-src="${p.src}" title="Eliminar foto">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -935,23 +924,15 @@ async function establecerPortadaMateria(src, silent = false) {
   try {
     await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: src || '' });
     currentGaleria.coverImage = src || '';
+    if (currentGaleria.groupId) {
+      await updateDoc(doc(getDB(), 'fa_grupos', currentGaleria.groupId), { coverImage: src || '' });
+      const grupo = GRUPOS.find(g => g.id === currentGaleria.groupId);
+      if (grupo) grupo.coverImage = src || '';
+    }
     if (!silent) alert('Portada de materia actualizada.');
     renderTodo();
   } catch (err) {
     if (!silent) alert('No se pudo actualizar la portada.');
-  }
-}
-
-async function establecerPortadaGrupoDesdeMateria(groupId, coverImage) {
-  const { doc, updateDoc } = getLib();
-  try {
-    await updateDoc(doc(getDB(), 'fa_grupos', groupId), { coverImage: coverImage || '' });
-    const grupo = GRUPOS.find(g => g.id === groupId);
-    if (grupo) grupo.coverImage = coverImage || '';
-    alert('Portada de grupo actualizada.');
-    renderTodo();
-  } catch (err) {
-    alert('No se pudo actualizar la portada del grupo.');
   }
 }
 
@@ -1094,7 +1075,7 @@ waitForFirebase(() => {
 ════════════════════════════════════════════════════════ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
   });
 }
 
@@ -1106,7 +1087,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 if (btnInstallApp) {
   btnInstallApp.addEventListener('click', async () => {
-    if (!deferredInstallPrompt) return;
+    if (!deferredInstallPrompt) {
+      alert('Si no aparece el botón de instalar en la barra, abre el menú del navegador y elige "Instalar app" o "Agregar a pantalla de inicio".');
+      return;
+    }
     deferredInstallPrompt.prompt();
     try {
       await deferredInstallPrompt.userChoice;
@@ -1115,6 +1099,11 @@ if (btnInstallApp) {
     btnInstallApp.hidden = true;
   });
 }
+
+window.addEventListener('load', () => {
+  // Fallback para que siempre exista una opcion visible de instalacion.
+  if (btnInstallApp) btnInstallApp.hidden = false;
+});
 
 window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
