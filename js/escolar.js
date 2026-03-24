@@ -64,7 +64,7 @@ function escucharGrupos() {
 async function crearGrupo(name, icon) {
   const { collection, addDoc, serverTimestamp } = getLib();
   await addDoc(collection(getDB(), 'fa_grupos'), {
-    name, icon, open: true, createdAt: serverTimestamp()
+    name, icon, open: true, coverImage: '', createdAt: serverTimestamp()
   });
 }
 
@@ -278,7 +278,7 @@ function renderTodo() {
       const subjectMatches = materias.some(m => (m.name || '').toLowerCase().includes(search));
       if (search && !groupMatches && !subjectMatches) return;
       const isOpen = grupo.open !== false;
-      const primeraCover = materias.find(m => m.coverImage)?.coverImage || '';
+      const primeraCover = grupo.coverImage || materias.find(m => m.coverImage)?.coverImage || '';
       html += `
       <div class="group-accordion ${isOpen ? 'open' : ''}" data-group-id="${grupo.id}">
         <div class="group-header" data-group-id="${grupo.id}">
@@ -360,6 +360,7 @@ function albumCardHTML(g) {
         <div class="album-actions">
           <button class="album-action-btn" data-open-materia="${g.id}">Abrir</button>
           <button class="album-action-btn primary" data-open-subject-notes="${g.id}" data-notes-title="${notesTitle}">Notas</button>
+          <button class="album-action-btn" data-set-group-cover="${g.id}" title="Usar portada de esta materia para su grupo">Portada grupo</button>
         </div>
       </article>
       <button class="materia-delete" data-id="${g.id}" title="Eliminar materia">
@@ -452,6 +453,16 @@ function attachGroupEvents() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       openSubjectComments(btn.dataset.openSubjectNotes, btn.dataset.notesTitle || 'Notas de materia');
+    });
+  });
+  groupsContainer.querySelectorAll('[data-set-group-cover]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const materiaId = btn.dataset.setGroupCover;
+      const materia = GALERIAS.find(g => g.id === materiaId);
+      if (!materia?.groupId) { alert('Esta materia no está dentro de un grupo.'); return; }
+      if (!materia.coverImage) { alert('Esta materia aún no tiene portada. Elige una foto como portada primero.'); return; }
+      await establecerPortadaGrupoDesdeMateria(materia.groupId, materia.coverImage);
     });
   });
 
@@ -549,9 +560,8 @@ function renderPhotos() {
           <span class="heart">${likedPhotos.has(p.id) ? '❤️' : '🤍'}</span>
           <span class="like-count" id="likes-${p.id}">0</span>
         </button>
-        <button class="btn-comments" data-src="${p.src}" data-caption="${escHtml(p.caption)}">
-          💬 ${p.caption ? escHtml(p.caption.length > 12 ? p.caption.slice(0, 12) + '…' : p.caption) : 'Notas'}
-        </button>
+        <button class="btn-comments" data-src="${p.src}" data-caption="${escHtml(p.caption)}">💬 Notas</button>
+        <button class="btn-set-cover" data-src="${p.src}" title="Usar como portada">⭐ Portada</button>
         <button class="btn-delete-photo" data-publicid="${p.publicId}" data-src="${p.src}" title="Eliminar foto">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
@@ -569,6 +579,8 @@ function renderPhotos() {
   });
   photosGrid.querySelectorAll('.btn-comments').forEach(btn =>
     btn.addEventListener('click', () => openComments(btn.dataset.src, btn.dataset.caption)));
+  photosGrid.querySelectorAll('.btn-set-cover').forEach(btn =>
+    btn.addEventListener('click', () => establecerPortadaMateria(btn.dataset.src)));
   photosGrid.querySelectorAll('.btn-delete-photo').forEach(btn => {
     btn.addEventListener('click', () => {
       pedirPin('Eliminar esta foto', async () => {
@@ -602,6 +614,10 @@ async function eliminarFoto(publicId, src) {
     if (data.success) {
       if (currentGaleria?.photos) {
         currentGaleria.photos = currentGaleria.photos.filter(p => p.publicId !== publicId);
+      }
+      if (currentGaleria && currentGaleria.coverImage === src) {
+        const siguiente = currentGaleria.photos[0]?.src || '';
+        await establecerPortadaMateria(siguiente, true);
       }
       renderPhotos();
       alert("¡Foto eliminada de Cloudinary!");
@@ -824,8 +840,9 @@ commentsForm.addEventListener('submit', async e => {
   e.preventDefault();
   if (!window._firestoreDb || !currentCommentsId) return;
   const { collection, addDoc, serverTimestamp } = getLib();
-  const author = commentsAuthor.value.trim() || 'Yo';
+  const author = commentsAuthor.value.trim();
   const text = commentsText.value.trim();
+  if (!author) { alert('Escribe tu nombre para guardar la nota.'); commentsAuthor.focus(); return; }
   if (!text) return;
   try {
     await addDoc(collection(getDB(), 'escolar_comments'), { photoId: currentCommentsId, author, text, createdAt: serverTimestamp() });
@@ -897,8 +914,9 @@ if (subjectCommentsForm) {
     e.preventDefault();
     if (!window._firestoreDb || !currentSubjectCommentsId) return;
     const { collection, addDoc, serverTimestamp } = getLib();
-    const author = subjectCommentsAuthor.value.trim() || 'Yo';
+    const author = subjectCommentsAuthor.value.trim();
     const text = subjectCommentsText.value.trim();
+    if (!author) { alert('Escribe tu nombre para guardar la nota.'); subjectCommentsAuthor.focus(); return; }
     if (!text) return;
     try {
       await addDoc(collection(getDB(), 'escolar_subject_comments'), {
@@ -909,6 +927,32 @@ if (subjectCommentsForm) {
       alert('No se pudo guardar la nota.');
     }
   });
+}
+
+async function establecerPortadaMateria(src, silent = false) {
+  if (!currentGaleria) return;
+  const { doc, updateDoc } = getLib();
+  try {
+    await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: src || '' });
+    currentGaleria.coverImage = src || '';
+    if (!silent) alert('Portada de materia actualizada.');
+    renderTodo();
+  } catch (err) {
+    if (!silent) alert('No se pudo actualizar la portada.');
+  }
+}
+
+async function establecerPortadaGrupoDesdeMateria(groupId, coverImage) {
+  const { doc, updateDoc } = getLib();
+  try {
+    await updateDoc(doc(getDB(), 'fa_grupos', groupId), { coverImage: coverImage || '' });
+    const grupo = GRUPOS.find(g => g.id === groupId);
+    if (grupo) grupo.coverImage = coverImage || '';
+    alert('Portada de grupo actualizada.');
+    renderTodo();
+  } catch (err) {
+    alert('No se pudo actualizar la portada del grupo.');
+  }
 }
 
 /* ════════════════════════════════════════════════════════

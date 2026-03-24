@@ -1,6 +1,14 @@
 const https = require('https');
 const crypto = require('crypto');
 
+function buildSignature(params, apiSecret) {
+  const serialized = Object.keys(params)
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join('&');
+  return crypto.createHash('sha1').update(`${serialized}${apiSecret}`).digest('hex');
+}
+
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -14,12 +22,18 @@ exports.handler = async (event) => {
   const { publicId } = JSON.parse(event.body || '{}');
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const apiKey    = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  const apiSecret = (process.env.CLOUDINARY_API_SECRET || '').trim();
+
+  if (!publicId || !cloudName || !apiKey || !apiSecret) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ error: 'Faltan datos para eliminar (publicId o variables de entorno).' }),
+    };
+  }
 
   const timestamp = Math.round(Date.now() / 1000);
-  // Firma corregida a SHA-1 (Estándar de Cloudinary)
-  const toSign    = `public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
-  const signature = crypto.createHash('sha1').update(toSign).digest('hex');
+  const signature = buildSignature({ public_id: publicId, timestamp }, apiSecret);
 
   const formData = new URLSearchParams({
     public_id: publicId,
