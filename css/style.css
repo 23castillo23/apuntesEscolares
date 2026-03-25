@@ -256,8 +256,8 @@ body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: i
 
 /* Header cerrado → apariencia de tarjeta cuadrada */
 .group-accordion:not(.open) .group-header {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .42rem; padding: 1.05rem .75rem 1.1rem;
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 0;
   cursor: pointer; user-select: none;
   position: relative; overflow: hidden;
   background: var(--warm-white);
@@ -273,27 +273,52 @@ body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: i
   box-shadow: 0 8px 24px var(--shadow-md);
 }
 
+/* Zona superior con imagen/icono */
+.group-card-top {
+  position: relative;
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100px;
+  background: linear-gradient(135deg, var(--sage-light) 0%, var(--sage) 100%);
+  overflow: hidden;
+}
+.group-accordion.open .group-card-top { display: none; }
+
+/* Zona info (nombre + count) */
+.group-card-info {
+  display: flex; flex-direction: column; align-items: center;
+  gap: .15rem; padding: .5rem .65rem .25rem;
+}
+.group-accordion.open .group-card-info { display: none; }
+
 /* Header abierto → barra horizontal */
 .group-accordion.open .group-header {
   display: flex; flex-direction: row; align-items: center; gap: .6rem;
   padding: .85rem 1rem;
   cursor: pointer; user-select: none;
-  position: relative; overflow: hidden;
+  position: relative; overflow: visible;
   background: var(--warm-white);
   border: 1px solid rgba(61,50,41,.1);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   transition: background var(--ease);
   min-height: 64px;
 }
-
-/* Imagen de fondo del grupo */
-.group-header-bg {
-  position: absolute; inset: 0;
-  background-size: cover; background-position: center;
-  opacity: .18;
-  transition: opacity var(--ease);
+/* En estado abierto mostrar icon + info en fila */
+.group-accordion.open .group-card-top {
+  display: flex; align-items: center; justify-content: flex-start;
+  min-height: unset; background: none; overflow: visible;
+  flex: 0 0 auto; gap: 0;
 }
-.group-header:hover .group-header-bg { opacity: .28; }
+.group-accordion.open .group-card-top .group-header-bg { display: none; }
+.group-accordion.open .group-card-info {
+  display: flex; flex-direction: row; align-items: center;
+  gap: .4rem; padding: 0; flex: 1;
+}
+.group-accordion.open .group-card-info .group-name {
+  font-family: var(--font-display); font-size: 1.15rem;
+  font-weight: 600; color: var(--brown); flex: 1;
+}
+.group-accordion.open .group-mini-actions { display: none; }
 
 /* Icon */
 .group-accordion:not(.open) .group-header .group-icon {
@@ -304,10 +329,9 @@ body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: i
 }
 
 /* Name */
-.group-accordion:not(.open) .group-header .group-name {
+.group-accordion:not(.open) .group-card-info .group-name {
   font-family: var(--font-display); font-size: .95rem;
   font-weight: 600; color: var(--brown);
-  position: relative; z-index: 1;
   white-space: normal; text-align: center; line-height: 1.2;
   word-break: break-word;
 }
@@ -326,11 +350,21 @@ body[data-theme="dark"] .global-search::-webkit-search-cancel-button { filter: i
   white-space: nowrap;
 }
 .group-accordion.open .group-header .group-count { margin-right: .35rem; }
+
+/* Imagen de fondo del grupo — dentro de group-card-top */
+.group-header-bg {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center;
+  opacity: .55;
+  transition: opacity var(--ease);
+}
+.group-card-top:hover .group-header-bg { opacity: .7; }
+
 .group-mini-actions {
   display: none;
   width: 100%;
   gap: .35rem;
-  margin-top: .2rem;
+  padding: 0 .65rem .6rem;
 }
 .group-accordion:not(.open) .group-mini-actions { display: flex; }
 .group-mini-btn {
@@ -372,12 +406,16 @@ body[data-theme="dark"] .group-mini-btn {
   padding: .3rem .4rem; border-radius: var(--radius-sm);
   display: flex; align-items: center;
   transition: opacity var(--ease), background var(--ease);
-  margin-right: .25rem;
-  position: relative; z-index: 1;
+  position: relative; z-index: 2;
   opacity: 0; pointer-events: none;
 }
-.group-accordion:not(.open) .group-header .group-delete {
-  position: absolute; top: .3rem; right: .3rem; margin-right: 0;
+/* En tarjeta cerrada: esquina superior derecha de group-card-top */
+.group-card-top .group-delete {
+  position: absolute; top: .3rem; right: .3rem;
+}
+/* En barra abierta: inline al final */
+.group-accordion.open .group-card-top .group-delete {
+  position: relative; top: auto; right: auto; margin-left: auto;
 }
 .group-header:hover .group-delete,
 .group-header.show-delete .group-delete {

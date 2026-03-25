@@ -310,20 +310,24 @@ function renderTodo() {
       html += `
       <div class="group-accordion ${isOpen ? 'open' : ''}" data-group-id="${grupo.id}">
         <div class="group-header" data-group-id="${grupo.id}">
-          ${primeraCover ? `<div class="group-header-bg" style="background-image:url('${primeraCover}')"></div>` : ''}
-          <span class="group-icon">${grupo.icon}</span>
-          <span class="group-name">${escHtml(grupo.name)}</span>
-          <span class="group-count">${materias.length} ${materias.length === 1 ? 'materia' : 'materias'}</span>
+          <div class="group-card-top">
+            ${primeraCover ? `<div class="group-header-bg" style="background-image:url('${primeraCover}')"></div>` : ''}
+            <span class="group-icon">${grupo.icon}</span>
+            <button class="group-delete" data-group-id="${grupo.id}" title="Mantén presionado para eliminar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+              </svg>
+            </button>
+          </div>
+          <div class="group-card-info">
+            <span class="group-name">${escHtml(grupo.name)}</span>
+            <span class="group-count">${materias.length} ${materias.length === 1 ? 'materia' : 'materias'}</span>
+          </div>
           <div class="group-mini-actions">
             <button class="group-mini-btn" data-open-group="${grupo.id}" title="Abrir grupo">Abrir</button>
             <button class="group-mini-btn primary" data-group-notes="${grupo.id}" data-group-name="${escHtml(grupo.name)}" title="Notas del grupo">Notas</button>
           </div>
-          <button class="group-delete" data-group-id="${grupo.id}" title="Mantén presionado para eliminar">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-              <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-            </svg>
-          </button>
           <svg class="group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M6 9l6 6 6-6"/>
           </svg>
@@ -1040,13 +1044,11 @@ newGalleryCancel.addEventListener('click', closeNewGalleryModal);
 newGalleryModal.addEventListener('click', e => { if (e.target === newGalleryModal) closeNewGalleryModal(); });
 
 galleryName.addEventListener('input', () => {
-  if (!galleryTag.value) {
-    galleryTag.value = galleryName.value
-      .toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_]/g, '');
-  }
+  galleryTag.value = galleryName.value
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
 });
 
 newGalleryConfirm.addEventListener('click', async () => {
