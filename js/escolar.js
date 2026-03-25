@@ -600,7 +600,7 @@ function renderPhotos() {
         </button>
         <button class="btn-comments" data-src="${p.src}" data-caption="${escHtml(p.caption)}">💬 Notas</button>
         <button class="btn-set-cover" data-src="${p.src}" title="Usar como portada de materia y grupo" aria-label="Usar como portada">⭐</button>
-        <button class="btn-delete-photo" data-publicid="${p.publicId}" data-src="${p.src}" title="Eliminar foto">
+        <button class="btn-delete-photo" onclick="window.eliminarFotoDeFirebase('${p.id}')" title="Eliminar foto">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
             <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
@@ -631,43 +631,37 @@ function renderPhotos() {
 /* ════════════════════════════════════════════════════════
    ELIMINAR FOTO (DIRECTO A CLOUDINARY - CON RASTREADORES)
 ════════════════════════════════════════════════════════ */
-async function eliminarFoto(publicId, src) {
-  const btn = photosGrid.querySelector(`[data-publicid="${publicId}"]`);
-  if (btn) btn.textContent = '⏳';
+async function eliminarFoto(photoId) {
+  // Usamos el sistema de PIN que ya tienes en el proyecto
+  abrirPinModal(() => {
+    ejecutarEliminacion(photoId);
+  });
+}
 
+async function ejecutarEliminacion(photoId) {
   try {
-    const response = await fetch(DELETE_FUNCTION_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ publicId: publicId })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      if (response.status === 405) {
-        throw new Error('Endpoint de borrado no disponible en este dominio. Verifica Netlify Functions.');
-      }
-      throw new Error(data.error || `Error HTTP ${response.status}`);
-    }
+    // 1. Obtenemos la referencia al documento en la colección 'fotos'
+    // que es la que usas en tu initFirebase
+    const { doc, deleteDoc, getFirestore } = window.FirebaseFirestore;
+    const db = getFirestore();
+    const fotoRef = doc(db, "fotos", photoId);
 
-    if (data.success) {
-      if (currentGaleria?.photos) {
-        currentGaleria.photos = currentGaleria.photos.filter(p => p.publicId !== publicId);
-      }
-      if (currentGaleria && currentGaleria.coverImage === src) {
-        const siguiente = currentGaleria.photos[0]?.src || '';
-        await establecerPortadaMateria(siguiente, true);
-      }
-      renderPhotos();
-      alert("¡Foto eliminada de Cloudinary!");
-    } else {
-      throw new Error(data.error || "No se pudo borrar");
-    }
-  } catch (err) {
-    console.error("Error en Netlify:", err);
-    alert("Error: " + err.message);
-    renderPhotos(); // Restauramos el icono si falla
+    // 2. Borramos el registro de Firebase
+    await deleteDoc(fotoRef);
+    
+    alert("Apunte eliminado correctamente del registro. ✦");
+    
+    // Si estás en la vista de la galería, cerramos el visor
+    if (typeof closePhotoViewer === 'function') closePhotoViewer();
+    
+  } catch (error) {
+    console.error("Error al eliminar la foto:", error);
+    alert("No se pudo eliminar: Revisa la conexión o las reglas de Firebase.");
   }
 }
+
+// Asegúrate de que la función sea accesible
+window.eliminarFoto = eliminarFoto;
 
 /* ════════════════════════════════════════════════════════
    SUBIDA DE FOTOS
@@ -1173,3 +1167,25 @@ window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
   if (btnInstallApp) btnInstallApp.hidden = true;
 });
+
+// --- FUNCIÓN DE BORRADO PARA APUNTES ---
+async function eliminarFotoDeFirebase(photoId) {
+  // Usamos el sistema de PIN que ya tienes en el proyecto
+  pedirPin("¿Eliminar este apunte escolar?", async () => {
+    try {
+      const { doc, deleteDoc } = window._firestoreLib;
+      const db = window._firestoreDb;
+      
+      // IMPORTANTE: Tu colección en este proyecto se llama 'fa_galerias' o 'fotos'
+      // según tu initFirebase. Usaremos la referencia correcta:
+      await deleteDoc(doc(db, "fotos", photoId)); 
+      
+      alert("Apunte eliminado con éxito. ✦");
+      // El onSnapshot de tu escolar.js hará que desaparezca de la pantalla solo
+    } catch (error) {
+      console.error("Error al eliminar:", error);
+      alert("Hubo un error al borrar de Firebase.");
+    }
+  });
+}
+window.eliminarFotoDeFirebase = eliminarFotoDeFirebase;
