@@ -914,7 +914,6 @@ function closeSubjectCommentsModal() {
   subjectCommentsModal.classList.remove('open');
   if (subjectCommentsUnsub) { subjectCommentsUnsub(); subjectCommentsUnsub = null; }
   currentSubjectCommentsId = null;
-  subjectCommentsList.innerHTML = '';
 }
 
 function listenSubjectComments(subjectId) {
@@ -923,48 +922,33 @@ function listenSubjectComments(subjectId) {
     return;
   }
   const { collection, query, where, onSnapshot, doc, deleteDoc } = getLib();
-  
   if (subjectCommentsUnsub) subjectCommentsUnsub();
-
-  const q = query(
-    collection(getDB(), 'escolar_subject_comments'), 
-    where('subjectId', '==', String(subjectId)) // Forzamos string aquí también
-  );
-
+  const q = query(collection(getDB(), 'escolar_subject_comments'), where('subjectId', '==', subjectId));
   subjectCommentsUnsub = onSnapshot(q, snap => {
     const docs = [];
     snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
-    
-    // Ordenamos por fecha
     docs.sort((a, b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0));
-
-    if (docs.length === 0) {
-      subjectCommentsList.innerHTML = '<p class="no-comments">Sin notas aún.</p>';
-      return;
-    }
-
-    subjectCommentsList.innerHTML = docs.map(d => `
-      <div class="comment-item">
-        <div class="comment-top-row">
-          <div class="comment-author">${escHtml(d.author || 'Yo')}</div>
-          <button class="btn-delete-comment" data-subject-comment-id="${d.id}">🗑️</button>
-        </div>
-        <div class="comment-text">${escHtml(d.text || '')}</div>
-        <div class="comment-date">${d.createdAt?.toDate ? d.createdAt.toDate().toLocaleString('es-MX') : ''}</div>
-      </div>`).join('');
-
-    // USAMOS .onclick PARA EVITAR DUPLICADOS
+    subjectCommentsList.innerHTML = docs.length === 0
+      ? '<p class="no-comments">Sin notas aún.</p>'
+      : docs.map(d => `
+          <div class="comment-item">
+            <div class="comment-top-row">
+              <div class="comment-author">${escHtml(d.author || 'Yo')}</div>
+              <button class="btn-delete-comment" data-subject-comment-id="${d.id}">🗑️</button>
+            </div>
+            <div class="comment-text">${escHtml(d.text || '')}</div>
+            <div class="comment-date">${d.createdAt?.toDate ? d.createdAt.toDate().toLocaleString('es-MX') : ''}</div>
+          </div>`).join('');
     subjectCommentsList.querySelectorAll('[data-subject-comment-id]').forEach(btn => {
-      btn.onclick = () => { 
+      btn.addEventListener('click', () => {
         const commentId = btn.dataset.subjectCommentId;
-        pedirPin('Eliminar nota', async () => {
+        pedirPin('Eliminar nota de materia', async () => {
           await deleteDoc(doc(getDB(), 'escolar_subject_comments', commentId));
         });
-      };
+      });
     });
   });
 }
-
 
 if (subjectCommentsClose) subjectCommentsClose.addEventListener('click', closeSubjectCommentsModal);
 if (subjectCommentsModal) {
@@ -972,43 +956,43 @@ if (subjectCommentsModal) {
     if (e.target === subjectCommentsModal) closeSubjectCommentsModal();
   });
 }
-
 if (subjectCommentsForm) {
   subjectCommentsForm.addEventListener('submit', async e => {
     e.preventDefault();
     if (!window._firestoreDb || !currentSubjectCommentsId) return;
-
     const { collection, addDoc, serverTimestamp } = getLib();
     const author = subjectCommentsAuthor.value.trim();
     const text = subjectCommentsText.value.trim();
-
-    if (!author) { 
-      alert('Escribe tu nombre para guardar la nota.'); 
-      subjectCommentsAuthor.focus(); 
-      return; 
-    }
+    if (!author) { alert('Escribe tu nombre para guardar la nota.'); subjectCommentsAuthor.focus(); return; }
     if (!text) return;
-
     try {
       localStorage.setItem(SUBJECT_NOTES_AUTHOR_STORAGE_KEY, author);
-
-      // --- ESTO ES LO QUE DEBES AGREGAR/CAMBIAR ---
-      console.log("📝 Guardando nota para el ID:", currentSubjectCommentsId); 
-
       await addDoc(collection(getDB(), 'escolar_subject_comments'), {
-        subjectId: String(currentSubjectCommentsId), // Forzamos que sea texto
-        author,
-        text,
-        createdAt: serverTimestamp()
+        subjectId: currentSubjectCommentsId, author, text, createdAt: serverTimestamp()
       });
-      // --------------------------------------------
-
       subjectCommentsText.value = '';
-    } catch (err) {
-      console.error("Error al guardar nota:", err);
+    } catch (_) {
       alert('No se pudo guardar la nota.');
     }
   });
+}
+
+async function establecerPortadaMateria(src, silent = false) {
+  if (!currentGaleria) return;
+  const { doc, updateDoc } = getLib();
+  try {
+    await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: src || '' });
+    currentGaleria.coverImage = src || '';
+    if (currentGaleria.groupId) {
+      await updateDoc(doc(getDB(), 'fa_grupos', currentGaleria.groupId), { coverImage: src || '' });
+      const grupo = GRUPOS.find(g => g.id === currentGaleria.groupId);
+      if (grupo) grupo.coverImage = src || '';
+    }
+    if (!silent) alert('Portada de materia actualizada.');
+    renderTodo();
+  } catch (err) {
+    if (!silent) alert('No se pudo actualizar la portada.');
+  }
 }
 
 /* ════════════════════════════════════════════════════════
