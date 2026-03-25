@@ -34,10 +34,7 @@
       <div class="toolbar-pill">
         <button class="toolbar-btn" id="btnThemeToggle" title="Cambiar tema">🌙</button>
       </div>
-      <div class="list-switch">
-        <button class="switch-btn active" id="btnViewGroups">Grupos</button>
-        <button class="switch-btn" id="btnViewSubjects">Materias</button>
-      </div>
+      <!-- botones de vista eliminados por el usuario -->
       <input type="search" id="globalSearch" class="global-search" placeholder="Buscar grupo o materia...">
     </section>
 
@@ -66,15 +63,17 @@
 
     <section class="gallery-section" id="gallerySection">
       <div class="gallery-header">
-        <button class="btn-back" id="btnBack">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          Volver
-        </button>
         <h2 class="gallery-title" id="galleryTitle">Materia</h2>
-        <button class="btn-upload-top" id="btnUploadTop">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Subir Fotos
-        </button>
+        <div class="gallery-header-top">
+          <button class="btn-back" id="btnBack">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Volver
+          </button>
+          <button class="btn-upload-top" id="btnUploadTop">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Subir Fotos
+          </button>
+        </div>
       </div>
 
       <div class="upload-zone" id="uploadZone">

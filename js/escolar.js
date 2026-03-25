@@ -21,6 +21,8 @@ let GALERIAS = [];
 let currentGaleria = null;
 let currentPhotoIndex = 0;
 let likedPhotos = new Set(JSON.parse(localStorage.getItem('escolar_liked') || '[]'));
+// Fotos donde ya no se puede retirar el like (una vez por dispositivo)
+const LIKED_ONCE_KEY = 'escolar_liked_once';
 let selectedFiles = [];
 let commentListeners = {};
 let currentCommentsId = null;
@@ -313,12 +315,6 @@ function renderTodo() {
           <div class="group-card-top">
             ${primeraCover ? `<div class="group-header-bg" style="background-image:url('${primeraCover}')"></div>` : ''}
             <span class="group-icon">${grupo.icon}</span>
-            <button class="group-delete" data-group-id="${grupo.id}" title="Mantén presionado para eliminar">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-              </svg>
-            </button>
           </div>
           <div class="group-card-info">
             <span class="group-name">${escHtml(grupo.name)}</span>
@@ -328,6 +324,12 @@ function renderTodo() {
             <button class="group-mini-btn" data-open-group="${grupo.id}" title="Abrir grupo">Abrir</button>
             <button class="group-mini-btn primary" data-group-notes="${grupo.id}" data-group-name="${escHtml(grupo.name)}" title="Notas del grupo">Notas</button>
           </div>
+          <button class="group-delete" data-group-id="${grupo.id}" title="Eliminar grupo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </button>
           <svg class="group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M6 9l6 6 6-6"/>
           </svg>
@@ -583,6 +585,7 @@ function closeGaleria() {
 ════════════════════════════════════════════════════════ */
 function renderPhotos() {
   const photos = currentGaleria?.photos || [];
+  const likedOnce = new Set(JSON.parse(localStorage.getItem(LIKED_ONCE_KEY) || '[]'));
   if (photos.length === 0) {
     photosGrid.innerHTML = `
       <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--brown-light)">
@@ -591,15 +594,18 @@ function renderPhotos() {
       </div>`;
     return;
   }
-  photosGrid.innerHTML = photos.map((p, i) => `
+  photosGrid.innerHTML = photos.map((p, i) => {
+    const safeId = String(p.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const alreadyLiked = likedOnce.has(safeId);
+    return `
     <div class="photo-item" data-index="${i}">
       <div class="photo-img-wrap">
         <img src="${p.src}" alt="${escHtml(p.caption)}" loading="lazy">
         ${p.caption ? `<div class="photo-caption-text">${escHtml(p.caption)}</div>` : ''}
       </div>
       <div class="photo-actions">
-        <button class="btn-like ${likedPhotos.has(p.id) ? 'liked' : ''}" data-id="${p.id}">
-          <span class="heart">${likedPhotos.has(p.id) ? '❤️' : '🤍'}</span>
+        <button class="btn-like ${alreadyLiked ? 'liked liked-once' : ''}" data-id="${p.id}" title="${alreadyLiked ? 'Ya diste like' : 'Dar like'}">
+          <span class="heart">${alreadyLiked ? '❤️' : '🤍'}</span>
           <span class="like-count" id="likes-${p.id}">0</span>
         </button>
         <button class="btn-comments" data-src="${p.src}" data-caption="${escHtml(p.caption)}">💬 Notas</button>
@@ -611,12 +617,16 @@ function renderPhotos() {
           </svg>
         </button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   photosGrid.querySelectorAll('.photo-img-wrap img').forEach((img, i) =>
     img.addEventListener('click', () => openLightbox(i)));
   photosGrid.querySelectorAll('.btn-like').forEach(btn => {
-    btn.addEventListener('click', () => toggleLike(btn.dataset.id, btn));
+    const handler = () => toggleLike(btn.dataset.id, btn);
+    btn.addEventListener('click', handler);
+    // Soporte táctil explícito para móvil/tablet
+    btn.addEventListener('touchend', e => { e.preventDefault(); handler(); });
     loadLikes(btn.dataset.id);
   });
   photosGrid.querySelectorAll('.btn-comments').forEach(btn =>
@@ -790,6 +800,19 @@ lightboxImg.addEventListener('wheel', e => {
   applyZoom();
 });
 lightboxImg.addEventListener('dblclick', () => { currentZoom = 1; panX = 0; panY = 0; applyZoom(); });
+
+// Doble tap para zoom en móvil
+let lastTap = 0;
+lightboxImg.addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - lastTap < 300) {
+    e.preventDefault();
+    if (currentZoom > 1) { currentZoom = 1; panX = 0; panY = 0; }
+    else { currentZoom = 2; }
+    applyZoom();
+  }
+  lastTap = now;
+});
 lightboxImg.addEventListener('mousedown', e => { if (currentZoom > 1) { isPanning = true; startX = e.clientX; startY = e.clientY; startPX = panX; startPY = panY; } });
 window.addEventListener('mousemove', e => { if (!isPanning) return; panX = startPX + (e.clientX - startX); panY = startPY + (e.clientY - startY); applyZoom(); });
 window.addEventListener('mouseup', () => { isPanning = false; });
@@ -799,25 +822,40 @@ window.addEventListener('mouseup', () => { isPanning = false; });
 ════════════════════════════════════════════════════════ */
 async function loadLikes(photoId) {
   if (!window._firestoreDb) return;
+  const safeId = String(photoId).replace(/[^a-zA-Z0-9_-]/g, '_');
   const { doc, getDoc } = getLib();
   try {
-    const snap = await getDoc(doc(getDB(), 'escolar_likes', 'p_' + photoId));
+    const snap = await getDoc(doc(getDB(), 'escolar_likes', 'p_' + safeId));
     const el = document.getElementById('likes-' + photoId);
     if (el) el.textContent = snap.exists() ? (snap.data().likes || 0) : 0;
   } catch (e) { }
 }
 async function toggleLike(photoId, btn) {
-  if (!window._firestoreDb) return;
+  if (!window._firestoreDb) { console.warn('Firebase no listo'); return; }
+  // Normalizar el id para evitar problemas con caracteres especiales
+  const safeId = String(photoId).replace(/[^a-zA-Z0-9_-]/g, '_');
+  // Verificar si este dispositivo ya dio like a esta foto
+  let likedOnce;
+  try { likedOnce = new Set(JSON.parse(localStorage.getItem(LIKED_ONCE_KEY) || '[]')); }
+  catch (_) { likedOnce = new Set(); }
+
+  if (likedOnce.has(safeId)) {
+    btn.classList.add('like-pulse');
+    setTimeout(() => btn.classList.remove('like-pulse'), 600);
+    return;
+  }
   const { doc, setDoc, increment } = getLib();
-  const already = likedPhotos.has(photoId);
   try {
-    await setDoc(doc(getDB(), 'escolar_likes', 'p_' + photoId), { likes: increment(already ? -1 : 1) }, { merge: true });
-    already ? likedPhotos.delete(photoId) : likedPhotos.add(photoId);
+    await setDoc(doc(getDB(), 'escolar_likes', 'p_' + safeId), { likes: increment(1) }, { merge: true });
+    likedOnce.add(safeId);
+    localStorage.setItem(LIKED_ONCE_KEY, JSON.stringify([...likedOnce]));
+    likedPhotos.add(photoId);
     localStorage.setItem('escolar_liked', JSON.stringify([...likedPhotos]));
-    btn.querySelector('.heart').textContent = likedPhotos.has(photoId) ? '❤️' : '🤍';
-    btn.classList.toggle('liked', likedPhotos.has(photoId));
-    await loadLikes(photoId);
-  } catch (e) { console.error(e); }
+    btn.querySelector('.heart').textContent = '❤️';
+    btn.classList.add('liked', 'liked-once');
+    btn.title = 'Ya diste like';
+    await loadLikes(safeId);
+  } catch (e) { console.error('Error al dar like:', e); }
 }
 
 /* ════════════════════════════════════════════════════════
@@ -1044,11 +1082,12 @@ newGalleryCancel.addEventListener('click', closeNewGalleryModal);
 newGalleryModal.addEventListener('click', e => { if (e.target === newGalleryModal) closeNewGalleryModal(); });
 
 galleryName.addEventListener('input', () => {
-  galleryTag.value = galleryName.value
+  const val = galleryName.value
     .toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '');
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
+  galleryTag.value = val;
 });
 
 newGalleryConfirm.addEventListener('click', async () => {
@@ -1082,13 +1121,28 @@ function updateViewButtons() {
 }
 
 function initThemeToggle() {
-  const storedTheme = localStorage.getItem('escolar_theme') || 'light';
-  document.body.setAttribute('data-theme', storedTheme);
-  if (btnThemeToggle) btnThemeToggle.textContent = storedTheme === 'dark' ? '☀️' : '🌙';
+  const storedTheme = localStorage.getItem('escolar_theme');
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  // Si no hay preferencia guardada, seguir el sistema
+  const activeTheme = storedTheme || (prefersDark ? 'dark' : 'light');
+  document.body.setAttribute('data-theme', activeTheme);
+  if (btnThemeToggle) btnThemeToggle.textContent = activeTheme === 'dark' ? '☀️' : '🌙';
+
+  // Escuchar cambios del sistema en tiempo real (si no hay preferencia manual)
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      if (!localStorage.getItem('escolar_theme')) {
+        const next = e.matches ? 'dark' : 'light';
+        document.body.setAttribute('data-theme', next);
+        if (btnThemeToggle) btnThemeToggle.textContent = next === 'dark' ? '☀️' : '🌙';
+      }
+    });
+  }
 
   if (!btnThemeToggle) return;
   btnThemeToggle.addEventListener('click', () => {
-    const current = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const current = document.body.getAttribute('data-theme');
     const next = current === 'dark' ? 'light' : 'dark';
     document.body.setAttribute('data-theme', next);
     localStorage.setItem('escolar_theme', next);
