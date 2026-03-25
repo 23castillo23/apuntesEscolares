@@ -45,6 +45,9 @@ function waitForFirebase(cb) {
   }, 100);
 }
 
+function getDB() { return window._firestoreDb; }
+function getLib() { return window._firestoreLib; }
+
 /* ════════════════════════════════════════════════════════
    FIRESTORE — Grupos
 ════════════════════════════════════════════════════════ */
@@ -597,7 +600,7 @@ function renderPhotos() {
         </button>
         <button class="btn-comments" data-src="${p.src}" data-caption="${escHtml(p.caption)}">💬 Notas</button>
         <button class="btn-set-cover" data-src="${p.src}" title="Usar como portada de materia y grupo" aria-label="Usar como portada">⭐</button>
-        <button class="btn-delete-photo" onclick="window.eliminarFotoDeFirebase('${p.id}')" title="Eliminar foto">
+        <button class="btn-delete-photo" data-publicid="${p.publicId}" data-src="${p.src}" title="Eliminar foto">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
             <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
@@ -628,42 +631,43 @@ function renderPhotos() {
 /* ════════════════════════════════════════════════════════
    ELIMINAR FOTO (DIRECTO A CLOUDINARY - CON RASTREADORES)
 ════════════════════════════════════════════════════════ */
-/* ─── FUNCIONES DE APOYO PARA FIREBASE (Indispensables para crear grupos) ─── */
-/* ─── FUNCIONES DE APOYO (Indispensables para Crear Grupos) ─── */
-function getDB() { return window._firestoreDb; }
-function getLib() { return window._firestoreLib; }
+async function eliminarFoto(publicId, src) {
+  const btn = photosGrid.querySelector(`[data-publicid="${publicId}"]`);
+  if (btn) btn.textContent = '⏳';
 
-/* ─── FUNCIÓN PARA ELIMINAR APUNTES ─── */
-async function eliminarFotoDeFirebase(photoId) {
-    // Usamos el sistema de PIN que ya tienes en el proyecto
-    pedirPin("¿Eliminar este apunte escolar?", async () => {
-        try {
-            const { doc, deleteDoc } = getLib();
-            const db = getDB();
-            
-            if (!db || !doc) {
-                throw new Error("Servicios de Firebase no detectados");
-            }
-
-            // Borramos el documento de la colección 'fotos'
-            await deleteDoc(doc(db, "fotos", photoId)); 
-            
-            alert("¡Apunte eliminado con éxito! ✦");
-            
-            // Refrescar la vista automáticamente
-            if (currentGaleria) {
-                await cargarFotosDeGaleria(currentGaleria);
-                renderPhotos();
-            }
-        } catch (error) {
-            console.error("Error al eliminar:", error);
-            alert("Error: " + error.message);
-        }
+  try {
+    const response = await fetch(DELETE_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publicId: publicId })
     });
-}
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 405) {
+        throw new Error('Endpoint de borrado no disponible en este dominio. Verifica Netlify Functions.');
+      }
+      throw new Error(data.error || `Error HTTP ${response.status}`);
+    }
 
-// Hacemos la función global para que los botones la encuentren
-window.eliminarFotoDeFirebase = eliminarFotoDeFirebase;
+    if (data.success) {
+      if (currentGaleria?.photos) {
+        currentGaleria.photos = currentGaleria.photos.filter(p => p.publicId !== publicId);
+      }
+      if (currentGaleria && currentGaleria.coverImage === src) {
+        const siguiente = currentGaleria.photos[0]?.src || '';
+        await establecerPortadaMateria(siguiente, true);
+      }
+      renderPhotos();
+      alert("¡Foto eliminada de Cloudinary!");
+    } else {
+      throw new Error(data.error || "No se pudo borrar");
+    }
+  } catch (err) {
+    console.error("Error en Netlify:", err);
+    alert("Error: " + err.message);
+    renderPhotos(); // Restauramos el icono si falla
+  }
+}
 
 /* ════════════════════════════════════════════════════════
    SUBIDA DE FOTOS
@@ -910,6 +914,7 @@ function closeSubjectCommentsModal() {
   subjectCommentsModal.classList.remove('open');
   if (subjectCommentsUnsub) { subjectCommentsUnsub(); subjectCommentsUnsub = null; }
   currentSubjectCommentsId = null;
+  subjectCommentsList.innerHTML = '';
 }
 
 function listenSubjectComments(subjectId) {
@@ -918,33 +923,48 @@ function listenSubjectComments(subjectId) {
     return;
   }
   const { collection, query, where, onSnapshot, doc, deleteDoc } = getLib();
+  
   if (subjectCommentsUnsub) subjectCommentsUnsub();
-  const q = query(collection(getDB(), 'escolar_subject_comments'), where('subjectId', '==', subjectId));
+
+  const q = query(
+    collection(getDB(), 'escolar_subject_comments'), 
+    where('subjectId', '==', String(subjectId)) // Forzamos string aquí también
+  );
+
   subjectCommentsUnsub = onSnapshot(q, snap => {
     const docs = [];
     snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
+    
+    // Ordenamos por fecha
     docs.sort((a, b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0));
-    subjectCommentsList.innerHTML = docs.length === 0
-      ? '<p class="no-comments">Sin notas aún.</p>'
-      : docs.map(d => `
-          <div class="comment-item">
-            <div class="comment-top-row">
-              <div class="comment-author">${escHtml(d.author || 'Yo')}</div>
-              <button class="btn-delete-comment" data-subject-comment-id="${d.id}">🗑️</button>
-            </div>
-            <div class="comment-text">${escHtml(d.text || '')}</div>
-            <div class="comment-date">${d.createdAt?.toDate ? d.createdAt.toDate().toLocaleString('es-MX') : ''}</div>
-          </div>`).join('');
+
+    if (docs.length === 0) {
+      subjectCommentsList.innerHTML = '<p class="no-comments">Sin notas aún.</p>';
+      return;
+    }
+
+    subjectCommentsList.innerHTML = docs.map(d => `
+      <div class="comment-item">
+        <div class="comment-top-row">
+          <div class="comment-author">${escHtml(d.author || 'Yo')}</div>
+          <button class="btn-delete-comment" data-subject-comment-id="${d.id}">🗑️</button>
+        </div>
+        <div class="comment-text">${escHtml(d.text || '')}</div>
+        <div class="comment-date">${d.createdAt?.toDate ? d.createdAt.toDate().toLocaleString('es-MX') : ''}</div>
+      </div>`).join('');
+
+    // USAMOS .onclick PARA EVITAR DUPLICADOS
     subjectCommentsList.querySelectorAll('[data-subject-comment-id]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.onclick = () => { 
         const commentId = btn.dataset.subjectCommentId;
-        pedirPin('Eliminar nota de materia', async () => {
+        pedirPin('Eliminar nota', async () => {
           await deleteDoc(doc(getDB(), 'escolar_subject_comments', commentId));
         });
-      });
+      };
     });
   });
 }
+
 
 if (subjectCommentsClose) subjectCommentsClose.addEventListener('click', closeSubjectCommentsModal);
 if (subjectCommentsModal) {
@@ -952,43 +972,43 @@ if (subjectCommentsModal) {
     if (e.target === subjectCommentsModal) closeSubjectCommentsModal();
   });
 }
+
 if (subjectCommentsForm) {
   subjectCommentsForm.addEventListener('submit', async e => {
     e.preventDefault();
     if (!window._firestoreDb || !currentSubjectCommentsId) return;
+
     const { collection, addDoc, serverTimestamp } = getLib();
     const author = subjectCommentsAuthor.value.trim();
     const text = subjectCommentsText.value.trim();
-    if (!author) { alert('Escribe tu nombre para guardar la nota.'); subjectCommentsAuthor.focus(); return; }
+
+    if (!author) { 
+      alert('Escribe tu nombre para guardar la nota.'); 
+      subjectCommentsAuthor.focus(); 
+      return; 
+    }
     if (!text) return;
+
     try {
       localStorage.setItem(SUBJECT_NOTES_AUTHOR_STORAGE_KEY, author);
+
+      // --- ESTO ES LO QUE DEBES AGREGAR/CAMBIAR ---
+      console.log("📝 Guardando nota para el ID:", currentSubjectCommentsId); 
+
       await addDoc(collection(getDB(), 'escolar_subject_comments'), {
-        subjectId: currentSubjectCommentsId, author, text, createdAt: serverTimestamp()
+        subjectId: String(currentSubjectCommentsId), // Forzamos que sea texto
+        author,
+        text,
+        createdAt: serverTimestamp()
       });
+      // --------------------------------------------
+
       subjectCommentsText.value = '';
-    } catch (_) {
+    } catch (err) {
+      console.error("Error al guardar nota:", err);
       alert('No se pudo guardar la nota.');
     }
   });
-}
-
-async function establecerPortadaMateria(src, silent = false) {
-  if (!currentGaleria) return;
-  const { doc, updateDoc } = getLib();
-  try {
-    await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: src || '' });
-    currentGaleria.coverImage = src || '';
-    if (currentGaleria.groupId) {
-      await updateDoc(doc(getDB(), 'fa_grupos', currentGaleria.groupId), { coverImage: src || '' });
-      const grupo = GRUPOS.find(g => g.id === currentGaleria.groupId);
-      if (grupo) grupo.coverImage = src || '';
-    }
-    if (!silent) alert('Portada de materia actualizada.');
-    renderTodo();
-  } catch (err) {
-    if (!silent) alert('No se pudo actualizar la portada.');
-  }
 }
 
 /* ════════════════════════════════════════════════════════
@@ -1169,36 +1189,3 @@ window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
   if (btnInstallApp) btnInstallApp.hidden = true;
 });
-
-// --- FUNCIÓN DE BORRADO PARA APUNTES (CORREGIDA) ---
-async function eliminarFotoDeFirebase(photoId) {
-  // Usamos el sistema de PIN que ya tienes integrado
-  pedirPin("¿Eliminar este apunte escolar?", async () => {
-    try {
-      // Usamos las variables globales que ya definiste en el index.html
-      const { doc, deleteDoc } = window._firestoreLib;
-      const db = window._firestoreDb;
-      
-      if (!db || !doc) {
-        throw new Error("Firebase no está listo");
-      }
-
-      // IMPORTANTE: Tu colección de fotos se llama 'fotos'
-      await deleteDoc(doc(db, "fotos", photoId)); 
-      
-      alert("¡Apunte eliminado con éxito! ✦");
-      
-      // Forzamos la recarga de la galería actual para que desaparezca la foto
-      if (currentGaleria) {
-          await cargarFotosDeGaleria(currentGaleria);
-          renderPhotos();
-      }
-    } catch (error) {
-      console.error("Error al eliminar:", error);
-      alert("Hubo un error al borrar de Firebase: " + error.message);
-    }
-  });
-}
-
-// Hacemos la función disponible para los botones
-window.eliminarFotoDeFirebase = eliminarFotoDeFirebase;
