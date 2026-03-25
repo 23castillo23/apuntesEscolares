@@ -1168,24 +1168,35 @@ window.addEventListener('appinstalled', () => {
   if (btnInstallApp) btnInstallApp.hidden = true;
 });
 
-// --- FUNCIÓN DE BORRADO PARA APUNTES ---
+// --- FUNCIÓN DE BORRADO PARA APUNTES (CORREGIDA) ---
 async function eliminarFotoDeFirebase(photoId) {
-  // Usamos el sistema de PIN que ya tienes en el proyecto
+  // Usamos el sistema de PIN que ya tienes integrado
   pedirPin("¿Eliminar este apunte escolar?", async () => {
     try {
+      // Usamos las variables globales que ya definiste en el index.html
       const { doc, deleteDoc } = window._firestoreLib;
       const db = window._firestoreDb;
       
-      // IMPORTANTE: Tu colección en este proyecto se llama 'fa_galerias' o 'fotos'
-      // según tu initFirebase. Usaremos la referencia correcta:
+      if (!db || !doc) {
+        throw new Error("Firebase no está listo");
+      }
+
+      // IMPORTANTE: Tu colección de fotos se llama 'fotos'
       await deleteDoc(doc(db, "fotos", photoId)); 
       
-      alert("Apunte eliminado con éxito. ✦");
-      // El onSnapshot de tu escolar.js hará que desaparezca de la pantalla solo
+      alert("¡Apunte eliminado con éxito! ✦");
+      
+      // Forzamos la recarga de la galería actual para que desaparezca la foto
+      if (currentGaleria) {
+          await cargarFotosDeGaleria(currentGaleria);
+          renderPhotos();
+      }
     } catch (error) {
       console.error("Error al eliminar:", error);
-      alert("Hubo un error al borrar de Firebase.");
+      alert("Hubo un error al borrar de Firebase: " + error.message);
     }
   });
 }
+
+// Hacemos la función disponible para los botones
 window.eliminarFotoDeFirebase = eliminarFotoDeFirebase;
