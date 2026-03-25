@@ -45,9 +45,6 @@ function waitForFirebase(cb) {
   }, 100);
 }
 
-function getDB() { return window._firestoreDb; }
-function getLib() { return window._firestoreLib; }
-
 /* ════════════════════════════════════════════════════════
    FIRESTORE — Grupos
 ════════════════════════════════════════════════════════ */
@@ -631,37 +628,42 @@ function renderPhotos() {
 /* ════════════════════════════════════════════════════════
    ELIMINAR FOTO (DIRECTO A CLOUDINARY - CON RASTREADORES)
 ════════════════════════════════════════════════════════ */
-async function eliminarFoto(photoId) {
-  // Usamos el sistema de PIN que ya tienes en el proyecto
-  abrirPinModal(() => {
-    ejecutarEliminacion(photoId);
-  });
+/* ─── FUNCIONES DE APOYO PARA FIREBASE (Indispensables para crear grupos) ─── */
+/* ─── FUNCIONES DE APOYO (Indispensables para Crear Grupos) ─── */
+function getDB() { return window._firestoreDb; }
+function getLib() { return window._firestoreLib; }
+
+/* ─── FUNCIÓN PARA ELIMINAR APUNTES ─── */
+async function eliminarFotoDeFirebase(photoId) {
+    // Usamos el sistema de PIN que ya tienes en el proyecto
+    pedirPin("¿Eliminar este apunte escolar?", async () => {
+        try {
+            const { doc, deleteDoc } = getLib();
+            const db = getDB();
+            
+            if (!db || !doc) {
+                throw new Error("Servicios de Firebase no detectados");
+            }
+
+            // Borramos el documento de la colección 'fotos'
+            await deleteDoc(doc(db, "fotos", photoId)); 
+            
+            alert("¡Apunte eliminado con éxito! ✦");
+            
+            // Refrescar la vista automáticamente
+            if (currentGaleria) {
+                await cargarFotosDeGaleria(currentGaleria);
+                renderPhotos();
+            }
+        } catch (error) {
+            console.error("Error al eliminar:", error);
+            alert("Error: " + error.message);
+        }
+    });
 }
 
-async function ejecutarEliminacion(photoId) {
-  try {
-    // 1. Obtenemos la referencia al documento en la colección 'fotos'
-    // que es la que usas en tu initFirebase
-    const { doc, deleteDoc, getFirestore } = window.FirebaseFirestore;
-    const db = getFirestore();
-    const fotoRef = doc(db, "fotos", photoId);
-
-    // 2. Borramos el registro de Firebase
-    await deleteDoc(fotoRef);
-    
-    alert("Apunte eliminado correctamente del registro. ✦");
-    
-    // Si estás en la vista de la galería, cerramos el visor
-    if (typeof closePhotoViewer === 'function') closePhotoViewer();
-    
-  } catch (error) {
-    console.error("Error al eliminar la foto:", error);
-    alert("No se pudo eliminar: Revisa la conexión o las reglas de Firebase.");
-  }
-}
-
-// Asegúrate de que la función sea accesible
-window.eliminarFoto = eliminarFoto;
+// Hacemos la función global para que los botones la encuentren
+window.eliminarFotoDeFirebase = eliminarFotoDeFirebase;
 
 /* ════════════════════════════════════════════════════════
    SUBIDA DE FOTOS
