@@ -522,18 +522,26 @@ function attachGroupEvents() {
    CLOUDINARY — cargar fotos
 ════════════════════════════════════════════════════════ */
 async function cargarFotosDeGaleria(galeria) {
-  const url = `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/list/${galeria.cloudinaryTag}.json`;
+  // Lee fotos desde Firestore (sin depender de Cloudinary API ni Netlify)
+  const { collection, query, where, getDocs, orderBy } = getLib();
   try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const data = await r.json();
-    if (!data.resources || data.resources.length === 0) { galeria.photos = []; return; }
-    galeria.photos = data.resources.map(f => ({
-      src: `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/upload/v${f.version}/${f.public_id}.${f.format}`,
-      caption: f.context?.custom?.caption || '',
-      id: f.public_id.replace(/\//g, '_'),
-      publicId: f.public_id,
-    }));
+    const q = query(
+      collection(getDB(), 'fa_fotos'),
+      where('galeriaId', '==', galeria.id),
+      orderBy('createdAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    galeria.photos = [];
+    snap.forEach(d => {
+      const data = d.data();
+      galeria.photos.push({
+        src:         data.src,
+        caption:     data.caption || '',
+        id:          d.id,
+        firestoreId: d.id,
+        publicId:    data.publicId || '',
+      });
+    });
     // Actualizar coverImage en Firestore si no tiene
     if (!galeria.coverImage && galeria.photos.length > 0) {
       const { doc, updateDoc } = getLib();
@@ -541,6 +549,7 @@ async function cargarFotosDeGaleria(galeria) {
       galeria.coverImage = galeria.photos[0].src;
     }
   } catch (e) {
+    console.error('Error cargando fotos:', e);
     galeria.photos = galeria.photos || [];
   }
 }
@@ -610,7 +619,7 @@ function renderPhotos() {
         </button>
         <button class="btn-comments" data-src="${p.src}" data-caption="${escHtml(p.caption)}">💬 Notas</button>
         <button class="btn-set-cover" data-src="${p.src}" title="Usar como portada de materia y grupo" aria-label="Usar como portada">⭐</button>
-        <button class="btn-delete-photo" data-publicid="${p.publicId}" data-src="${p.src}" title="Eliminar foto">
+        <button class="btn-delete-photo" data-firestoreid="${p.firestoreId}" data-src="${p.src}" title="Eliminar foto">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
             <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
@@ -623,7 +632,10 @@ function renderPhotos() {
   photosGrid.querySelectorAll('.photo-img-wrap img').forEach((img, i) =>
     img.addEventListener('click', () => openLightbox(i)));
   photosGrid.querySelectorAll('.btn-like').forEach(btn => {
-    btn.addEventListener('click', () => toggleLike(btn.dataset.id, btn));
+    const handler = () => toggleLike(btn.dataset.id, btn);
+    btn.addEventListener('click', handler);
+    // Soporte táctil explícito para móvil/tablet
+    btn.addEventListener('touchend', e => { e.preventDefault(); handler(); });
     loadLikes(btn.dataset.id);
   });
   photosGrid.querySelectorAll('.btn-comments').forEach(btn =>
@@ -633,50 +645,32 @@ function renderPhotos() {
   photosGrid.querySelectorAll('.btn-delete-photo').forEach(btn => {
     btn.addEventListener('click', () => {
       pedirPin('Eliminar esta foto', async () => {
-        await eliminarFoto(btn.dataset.publicid, btn.dataset.src);
+        await eliminarFoto(btn.dataset.firestoreid, btn.dataset.src);
       });
     });
   });
 }
 
 /* ════════════════════════════════════════════════════════
-   ELIMINAR FOTO (DIRECTO A CLOUDINARY - CON RASTREADORES)
+   ELIMINAR FOTO — solo Firestore (sin Netlify, sin CORS)
 ════════════════════════════════════════════════════════ */
-async function eliminarFoto(publicId, src) {
-  const btn = photosGrid.querySelector(`[data-publicid="${publicId}"]`);
-  if (btn) btn.textContent = '⏳';
-
+async function eliminarFoto(firestoreId, src) {
+  if (!firestoreId) { alert('No se puede eliminar: ID de foto no encontrado.'); return; }
+  const { doc, deleteDoc } = getLib();
   try {
-    const response = await fetch(DELETE_FUNCTION_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ publicId: publicId })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      if (response.status === 405) {
-        throw new Error('Endpoint de borrado no disponible en este dominio. Verifica Netlify Functions.');
-      }
-      throw new Error(data.error || `Error HTTP ${response.status}`);
+    await deleteDoc(doc(getDB(), 'fa_fotos', firestoreId));
+    if (currentGaleria?.photos) {
+      currentGaleria.photos = currentGaleria.photos.filter(p => p.firestoreId !== firestoreId);
     }
-
-    if (data.success) {
-      if (currentGaleria?.photos) {
-        currentGaleria.photos = currentGaleria.photos.filter(p => p.publicId !== publicId);
-      }
-      if (currentGaleria && currentGaleria.coverImage === src) {
-        const siguiente = currentGaleria.photos[0]?.src || '';
-        await establecerPortadaMateria(siguiente, true);
-      }
-      renderPhotos();
-      alert("¡Foto eliminada de Cloudinary!");
-    } else {
-      throw new Error(data.error || "No se pudo borrar");
+    if (currentGaleria && currentGaleria.coverImage === src) {
+      const siguiente = currentGaleria.photos[0]?.src || '';
+      await establecerPortadaMateria(siguiente, true);
     }
+    renderPhotos();
   } catch (err) {
-    console.error("Error en Netlify:", err);
-    alert("Error: " + err.message);
-    renderPhotos(); // Restauramos el icono si falla
+    console.error('Error al eliminar foto:', err);
+    alert('Error al eliminar: ' + err.message);
+    renderPhotos();
   }
 }
 
@@ -722,12 +716,22 @@ btnUploadSend.addEventListener('click', async () => {
       const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: fd });
       const data = await res.json();
       if (data.error) throw new Error(data.error.message);
+
+      // Guardar foto en Firestore (para poder eliminarla sin Netlify)
+      const { collection, addDoc, serverTimestamp, doc, updateDoc } = getLib();
+      await addDoc(collection(getDB(), 'fa_fotos'), {
+        src:       data.secure_url,
+        publicId:  data.public_id,
+        galeriaId: currentGaleria.id,
+        caption:   caption || '',
+        createdAt: serverTimestamp(),
+      });
+
       subidas++;
       uploadProgressBar.style.width = Math.round((subidas / total) * 100) + '%';
       uploadProgressText.textContent = `Subiendo ${subidas} de ${total}…`;
       // Actualizar coverImage si es la primera foto
       if (subidas === 1 && !currentGaleria.coverImage) {
-        const { doc, updateDoc } = getLib();
         await updateDoc(doc(getDB(), 'fa_galerias', currentGaleria.id), { coverImage: data.secure_url });
       }
     } catch (err) {
@@ -817,77 +821,42 @@ window.addEventListener('mouseup', () => { isPanning = false; });
 /* ════════════════════════════════════════════════════════
    LIKES
 ════════════════════════════════════════════════════════ */
-
-// Genera un ID de dispositivo estable guardado en localStorage
-function getDeviceId() {
-  let id = localStorage.getItem('escolar_device_id');
-  if (!id) {
-    id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
-    localStorage.setItem('escolar_device_id', id);
-  }
-  return id;
-}
-
 async function loadLikes(photoId) {
   if (!window._firestoreDb) return;
   const safeId = String(photoId).replace(/[^a-zA-Z0-9_-]/g, '_');
   const { doc, getDoc } = getLib();
   try {
     const snap = await getDoc(doc(getDB(), 'escolar_likes', 'p_' + safeId));
-    // El elemento tiene el id original (puede contener caracteres especiales)
     const el = document.getElementById('likes-' + photoId);
     if (el) el.textContent = snap.exists() ? (snap.data().likes || 0) : 0;
   } catch (e) { }
 }
-
 async function toggleLike(photoId, btn) {
   if (!window._firestoreDb) { console.warn('Firebase no listo'); return; }
-
-  // Evitar doble disparo mientras se procesa
-  if (btn.dataset.processing === '1') return;
-  btn.dataset.processing = '1';
-
+  // Normalizar el id para evitar problemas con caracteres especiales
   const safeId = String(photoId).replace(/[^a-zA-Z0-9_-]/g, '_');
-  const deviceId = getDeviceId();
-
-  // Clave única: dispositivo + foto
-  const likeKey = safeId + '__' + deviceId;
-
+  // Verificar si este dispositivo ya dio like a esta foto
   let likedOnce;
   try { likedOnce = new Set(JSON.parse(localStorage.getItem(LIKED_ONCE_KEY) || '[]')); }
   catch (_) { likedOnce = new Set(); }
 
-  // Ya dio like desde este dispositivo
-  if (likedOnce.has(likeKey) || likedOnce.has(safeId)) {
+  if (likedOnce.has(safeId)) {
     btn.classList.add('like-pulse');
-    setTimeout(() => { btn.classList.remove('like-pulse'); btn.dataset.processing = '0'; }, 600);
+    setTimeout(() => btn.classList.remove('like-pulse'), 600);
     return;
   }
-
   const { doc, setDoc, increment } = getLib();
   try {
-    await setDoc(
-      doc(getDB(), 'escolar_likes', 'p_' + safeId),
-      { likes: increment(1) },
-      { merge: true }
-    );
-    // Guardar con clave compuesta para mayor seguridad
-    likedOnce.add(likeKey);
+    await setDoc(doc(getDB(), 'escolar_likes', 'p_' + safeId), { likes: increment(1) }, { merge: true });
+    likedOnce.add(safeId);
     localStorage.setItem(LIKED_ONCE_KEY, JSON.stringify([...likedOnce]));
     likedPhotos.add(photoId);
     localStorage.setItem('escolar_liked', JSON.stringify([...likedPhotos]));
-    // Actualizar UI del botón
-    const heart = btn.querySelector('.heart');
-    if (heart) heart.textContent = '❤️';
+    btn.querySelector('.heart').textContent = '❤️';
     btn.classList.add('liked', 'liked-once');
     btn.title = 'Ya diste like';
-    // Recargar contador
-    await loadLikes(photoId);
-  } catch (e) {
-    console.error('Error al dar like:', e);
-  } finally {
-    btn.dataset.processing = '0';
-  }
+    await loadLikes(safeId);
+  } catch (e) { console.error('Error al dar like:', e); }
 }
 
 /* ════════════════════════════════════════════════════════
