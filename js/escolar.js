@@ -223,8 +223,19 @@ let openGroupIds = new Set();
 /* ════════════════════════════════════════════════════════
    EMOJIS
 ════════════════════════════════════════════════════════ */
-const EMOJIS_MATERIA = ['📚', '📐', '🧮', '🔬', '🌍', '⚗️', '📖', '✏️', '💡', '🧠', '📊', '🎨', '🏃', '🎶', '💻', '📝', '🌿', '⭐', '🧬', '🏛️'];
-const EMOJIS_GRUPO = ['📁', '🗂️', '📦', '🎓', '📅', '🏫', '⭐', '🌟', '📌', '🔖', '🗓️', '🌈', '🎯', '🏆', '💼'];
+const EMOJIS_MATERIA = [
+'📚', '📐', '🧮', '🔬', '🌍', '💾', '📖', '✏️', '💡', '🧠', 
+'📊', '🎨', '🏃', '🎶', '💻', '📝', '🌿', '⭐', '🧬', '🏛️',
+'⌨️', '🤖', '🌐', '📡', '🔢', '🧪', '⚖️', '🗣️', '🗺️', '🎭',
+'🛠️', '🔌', '🔋', '🏗️', '🖨️', '✒️', '🔍', '🪐', '🕰️', '🌋'
+];
+const EMOJIS_GRUPO = [
+'📁', '🗂️', '📦', '🎓', '📅', '🏫', '⭐', '🌟', '📌', '🧱', 
+'🗓️', '🌈', '🎯', '🏆', '💼', '📂', '🔌', '📑', '📡', '💾', 
+'✅', '⏳', '🚀', '☁️', '🔗', '🏢', '🖇️', '🔔', '📢', '💡', 
+'📍', '🚩', '🗄️', '🥇', '💯', '💻', '⌨️', '🖱️', '🖥️', '🖨️'
+
+];
 
 function renderEmojiPickerEn(container, emojis, current, onSelect) {
   container.innerHTML = emojis.map(e =>
@@ -765,6 +776,10 @@ btnUploadSend.addEventListener('click', async () => {
     fd.append('upload_preset', CLOUDINARY_PRESET);
     fd.append('tags', currentGaleria.cloudinaryTag);
     fd.append('folder', `FotoApuntes/${currentGaleria.cloudinaryTag}`);
+    
+    // 👇 ESTA ES LA ÚNICA LÍNEA NUEVA QUE AGREGA LA SUBCARPETA VISUAL 👇
+    fd.append('asset_folder', `FotoApuntes/${currentGaleria.cloudinaryTag}`);
+    
     if (caption) fd.append('context', `caption=${caption}`);
     try {
       const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: fd });

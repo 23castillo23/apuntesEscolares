@@ -5,7 +5,7 @@ const APP_SHELL = [
   './css/style.css',
   './js/escolar.js',
   './manifest.webmanifest',
-  './icons/icon.svg'
+  './icons/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
