@@ -7,11 +7,7 @@
 
 const CLOUDINARY_CLOUD = 'dwjzn6n0a';
 const CLOUDINARY_PRESET = 'escolar_unsigned';
-const NETLIFY_FUNCTION_BASE = 'https://gilded-kataifi-894a8b.netlify.app';
-const DELETE_FUNCTION_URL = location.hostname.includes('github.io')
-  ? `${NETLIFY_FUNCTION_BASE}/.netlify/functions/delete-photo`
-  : '/.netlify/functions/delete-photo';
-const ADMIN_PIN = '1234'; // ← cambia por tu PIN secreto
+const ADMIN_PIN = '2309'; // ← cambia por tu PIN secreto
 
 /* ════════════════════════════════════════════════════════
    ESTADO
@@ -522,35 +518,75 @@ function attachGroupEvents() {
    CLOUDINARY — cargar fotos
 ════════════════════════════════════════════════════════ */
 async function cargarFotosDeGaleria(galeria) {
-  // Lee fotos desde Firestore (sin depender de Cloudinary API ni Netlify)
-  const { collection, query, where, getDocs, orderBy } = getLib();
+  const { collection, query, where, getDocs, addDoc, serverTimestamp, doc, updateDoc } = getLib();
+
   try {
+    // 1. Leer metadatos desde Firestore (sin orderBy para no requerir índice compuesto)
     const q = query(
       collection(getDB(), 'fa_fotos'),
-      where('galeriaId', '==', galeria.id),
-      orderBy('createdAt', 'desc')
+      where('galeriaId', '==', galeria.id)
     );
     const snap = await getDocs(q);
-    galeria.photos = [];
-    snap.forEach(d => {
-      const data = d.data();
-      galeria.photos.push({
-        src:         data.src,
-        caption:     data.caption || '',
-        id:          d.id,
-        firestoreId: d.id,
-        publicId:    data.publicId || '',
+
+    if (!snap.empty) {
+      galeria.photos = [];
+      snap.forEach(d => {
+        const data = d.data();
+        galeria.photos.push({
+          src:         data.src,
+          caption:     data.caption || '',
+          id:          d.id,
+          firestoreId: d.id,
+          publicId:    data.publicId || '',
+          createdAt:   data.createdAt?.toMillis?.() || 0,
+        });
       });
-    });
-    // Actualizar coverImage en Firestore si no tiene
+      // Ordenar por fecha descendente en JS
+      galeria.photos.sort((a, b) => b.createdAt - a.createdAt);
+    } else {
+      // 2. Sin registros en Firestore → leer de Cloudinary y registrar para futuro
+      galeria.photos = await cargarFotosDesdeCloudinary(galeria);
+      for (const p of galeria.photos) {
+        try {
+          const ref = await addDoc(collection(getDB(), 'fa_fotos'), {
+            src: p.src, publicId: p.publicId || '',
+            galeriaId: galeria.id, caption: p.caption || '',
+            createdAt: serverTimestamp(),
+          });
+          p.firestoreId = ref.id;
+          p.id = ref.id;
+        } catch (_) {}
+      }
+    }
+
+    // Actualizar portada si no tiene
     if (!galeria.coverImage && galeria.photos.length > 0) {
-      const { doc, updateDoc } = getLib();
       await updateDoc(doc(getDB(), 'fa_galerias', galeria.id), { coverImage: galeria.photos[0].src });
       galeria.coverImage = galeria.photos[0].src;
     }
   } catch (e) {
     console.error('Error cargando fotos:', e);
     galeria.photos = galeria.photos || [];
+  }
+}
+
+// Lee lista de fotos directamente desde Cloudinary
+async function cargarFotosDesdeCloudinary(galeria) {
+  const url = `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/list/${galeria.cloudinaryTag}.json`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const data = await r.json();
+    if (!data.resources?.length) return [];
+    return data.resources.map(f => ({
+      src:         `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/upload/v${f.version}/${f.public_id}.${f.format}`,
+      caption:     f.context?.custom?.caption || '',
+      id:          f.public_id.replace(/\//g, '_'),
+      publicId:    f.public_id,
+      firestoreId: '',
+    }));
+  } catch (e) {
+    return [];
   }
 }
 
@@ -619,7 +655,7 @@ function renderPhotos() {
         </button>
         <button class="btn-comments" data-src="${p.src}" data-caption="${escHtml(p.caption)}">💬 Notas</button>
         <button class="btn-set-cover" data-src="${p.src}" title="Usar como portada de materia y grupo" aria-label="Usar como portada">⭐</button>
-        <button class="btn-delete-photo" data-firestoreid="${p.firestoreId}" data-src="${p.src}" title="Eliminar foto">
+        <button class="btn-delete-photo" data-firestoreid="${p.firestoreId}" data-publicid="${p.publicId || ''}" data-src="${p.src}" title="Eliminar foto">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
             <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
@@ -645,33 +681,39 @@ function renderPhotos() {
   photosGrid.querySelectorAll('.btn-delete-photo').forEach(btn => {
     btn.addEventListener('click', () => {
       pedirPin('Eliminar esta foto', async () => {
-        await eliminarFoto(btn.dataset.firestoreid, btn.dataset.src);
+        await eliminarFoto(btn.dataset.firestoreid, btn.dataset.publicid, btn.dataset.src);
       });
     });
   });
 }
 
 /* ════════════════════════════════════════════════════════
-   ELIMINAR FOTO — solo Firestore (sin Netlify, sin CORS)
+   ELIMINAR FOTO — Cloudinary (vía Netlify) + Firestore
 ════════════════════════════════════════════════════════ */
-async function eliminarFoto(firestoreId, src) {
-  if (!firestoreId) { alert('No se puede eliminar: ID de foto no encontrado.'); return; }
+async function eliminarFoto(firestoreId, publicId, src) {
+  if (!firestoreId) {
+    alert('No se puede eliminar: ID de foto no encontrado.');
+    return;
+  }
+  // Borrar metadatos de Firestore
+  // (la foto en Cloudinary queda, se puede limpiar manualmente desde el panel de Cloudinary)
   const { doc, deleteDoc } = getLib();
   try {
     await deleteDoc(doc(getDB(), 'fa_fotos', firestoreId));
-    if (currentGaleria?.photos) {
-      currentGaleria.photos = currentGaleria.photos.filter(p => p.firestoreId !== firestoreId);
-    }
-    if (currentGaleria && currentGaleria.coverImage === src) {
-      const siguiente = currentGaleria.photos[0]?.src || '';
-      await establecerPortadaMateria(siguiente, true);
-    }
-    renderPhotos();
   } catch (err) {
-    console.error('Error al eliminar foto:', err);
+    console.error('Error al borrar de Firestore:', err);
     alert('Error al eliminar: ' + err.message);
-    renderPhotos();
+    return;
   }
+  // Actualizar estado local
+  if (currentGaleria?.photos) {
+    currentGaleria.photos = currentGaleria.photos.filter(p => p.firestoreId !== firestoreId);
+  }
+  if (currentGaleria && currentGaleria.coverImage === src) {
+    const siguiente = currentGaleria.photos[0]?.src || '';
+    await establecerPortadaMateria(siguiente, true);
+  }
+  renderPhotos();
 }
 
 /* ════════════════════════════════════════════════════════
