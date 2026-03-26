@@ -11,9 +11,9 @@
   "lang": "es-MX",
   "icons": [
     {
-      "src": "/icons/apple-touch-icon.png",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "icons/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

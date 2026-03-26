@@ -1,11 +1,11 @@
-const CACHE_NAME = 'fotoapuntes-shell-v3';
+const CACHE_NAME = 'fotoapuntes-shell-v4';
 const APP_SHELL = [
   './',
   './index.html',
   './css/style.css',
   './js/escolar.js',
   './manifest.webmanifest',
-  './icons/apple-touch-icon.png'
+  './icons/icon.png'
 ];
 
 self.addEventListener('install', (event) => {

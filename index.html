@@ -10,8 +10,8 @@
   <meta name="apple-mobile-web-app-title" content="FotoApuntes">
   <title>FotoApuntes · Álbum Escolar</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icons/apple-touch-icon.png" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon.png" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
@@ -220,10 +220,11 @@
   </div>
 
   <!-- FIREBASE — proyecto fotoApuntes -->
-  <script type="module">
+   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import {
-      getFirestore, collection, addDoc, query, where, getDocs,
+      initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+      collection, addDoc, query, where, getDocs,
       orderBy, onSnapshot, serverTimestamp, doc, setDoc, increment,
       getDoc, deleteDoc, updateDoc, writeBatch
     } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
@@ -238,7 +239,12 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
+    
+    // INICIALIZAR FIRESTORE CON CACHÉ (Ahorro de lecturas)
+    const db = initializeFirestore(app, {
+      localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
+    });
+
     window._firestoreDb  = db;
     window._firestoreLib = {
       collection, addDoc, query, where, getDocs, orderBy,
