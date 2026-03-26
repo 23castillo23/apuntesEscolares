@@ -623,10 +623,7 @@ function renderPhotos() {
   photosGrid.querySelectorAll('.photo-img-wrap img').forEach((img, i) =>
     img.addEventListener('click', () => openLightbox(i)));
   photosGrid.querySelectorAll('.btn-like').forEach(btn => {
-    const handler = () => toggleLike(btn.dataset.id, btn);
-    btn.addEventListener('click', handler);
-    // Soporte táctil explícito para móvil/tablet
-    btn.addEventListener('touchend', e => { e.preventDefault(); handler(); });
+    btn.addEventListener('click', () => toggleLike(btn.dataset.id, btn));
     loadLikes(btn.dataset.id);
   });
   photosGrid.querySelectorAll('.btn-comments').forEach(btn =>
@@ -820,42 +817,77 @@ window.addEventListener('mouseup', () => { isPanning = false; });
 /* ════════════════════════════════════════════════════════
    LIKES
 ════════════════════════════════════════════════════════ */
+
+// Genera un ID de dispositivo estable guardado en localStorage
+function getDeviceId() {
+  let id = localStorage.getItem('escolar_device_id');
+  if (!id) {
+    id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
+    localStorage.setItem('escolar_device_id', id);
+  }
+  return id;
+}
+
 async function loadLikes(photoId) {
   if (!window._firestoreDb) return;
   const safeId = String(photoId).replace(/[^a-zA-Z0-9_-]/g, '_');
   const { doc, getDoc } = getLib();
   try {
     const snap = await getDoc(doc(getDB(), 'escolar_likes', 'p_' + safeId));
+    // El elemento tiene el id original (puede contener caracteres especiales)
     const el = document.getElementById('likes-' + photoId);
     if (el) el.textContent = snap.exists() ? (snap.data().likes || 0) : 0;
   } catch (e) { }
 }
+
 async function toggleLike(photoId, btn) {
   if (!window._firestoreDb) { console.warn('Firebase no listo'); return; }
-  // Normalizar el id para evitar problemas con caracteres especiales
+
+  // Evitar doble disparo mientras se procesa
+  if (btn.dataset.processing === '1') return;
+  btn.dataset.processing = '1';
+
   const safeId = String(photoId).replace(/[^a-zA-Z0-9_-]/g, '_');
-  // Verificar si este dispositivo ya dio like a esta foto
+  const deviceId = getDeviceId();
+
+  // Clave única: dispositivo + foto
+  const likeKey = safeId + '__' + deviceId;
+
   let likedOnce;
   try { likedOnce = new Set(JSON.parse(localStorage.getItem(LIKED_ONCE_KEY) || '[]')); }
   catch (_) { likedOnce = new Set(); }
 
-  if (likedOnce.has(safeId)) {
+  // Ya dio like desde este dispositivo
+  if (likedOnce.has(likeKey) || likedOnce.has(safeId)) {
     btn.classList.add('like-pulse');
-    setTimeout(() => btn.classList.remove('like-pulse'), 600);
+    setTimeout(() => { btn.classList.remove('like-pulse'); btn.dataset.processing = '0'; }, 600);
     return;
   }
+
   const { doc, setDoc, increment } = getLib();
   try {
-    await setDoc(doc(getDB(), 'escolar_likes', 'p_' + safeId), { likes: increment(1) }, { merge: true });
-    likedOnce.add(safeId);
+    await setDoc(
+      doc(getDB(), 'escolar_likes', 'p_' + safeId),
+      { likes: increment(1) },
+      { merge: true }
+    );
+    // Guardar con clave compuesta para mayor seguridad
+    likedOnce.add(likeKey);
     localStorage.setItem(LIKED_ONCE_KEY, JSON.stringify([...likedOnce]));
     likedPhotos.add(photoId);
     localStorage.setItem('escolar_liked', JSON.stringify([...likedPhotos]));
-    btn.querySelector('.heart').textContent = '❤️';
+    // Actualizar UI del botón
+    const heart = btn.querySelector('.heart');
+    if (heart) heart.textContent = '❤️';
     btn.classList.add('liked', 'liked-once');
     btn.title = 'Ya diste like';
-    await loadLikes(safeId);
-  } catch (e) { console.error('Error al dar like:', e); }
+    // Recargar contador
+    await loadLikes(photoId);
+  } catch (e) {
+    console.error('Error al dar like:', e);
+  } finally {
+    btn.dataset.processing = '0';
+  }
 }
 
 /* ════════════════════════════════════════════════════════
