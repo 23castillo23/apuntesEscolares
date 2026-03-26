@@ -521,41 +521,49 @@ async function cargarFotosDeGaleria(galeria) {
   const { collection, query, where, getDocs, addDoc, serverTimestamp, doc, updateDoc } = getLib();
 
   try {
-    // 1. Leer metadatos desde Firestore (sin orderBy para no requerir índice compuesto)
     const q = query(
       collection(getDB(), 'fa_fotos'),
       where('galeriaId', '==', galeria.id)
     );
-    const snap = await getDocs(q);
 
-    if (!snap.empty) {
-      galeria.photos = [];
-      snap.forEach(d => {
-        const data = d.data();
-        galeria.photos.push({
-          src:         data.src,
-          caption:     data.caption || '',
-          id:          d.id,
-          firestoreId: d.id,
-          publicId:    data.publicId || '',
-          createdAt:   data.createdAt?.toMillis?.() || 0,
-        });
+    const snap = await Promise.race([
+      getDocs(q),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+    ]);
+
+    galeria.photos = [];
+    snap.forEach(d => {
+      const data = d.data();
+      galeria.photos.push({
+        src:         data.src,
+        caption:     data.caption || '',
+        id:          d.id,
+        firestoreId: d.id,
+        publicId:    data.publicId || '',
+        createdAt:   data.createdAt?.toMillis?.() || 0,
       });
-      // Ordenar por fecha descendente en JS
-      galeria.photos.sort((a, b) => b.createdAt - a.createdAt);
-    } else {
-      // 2. Sin registros en Firestore → leer de Cloudinary y registrar para futuro
-      galeria.photos = await cargarFotosDesdeCloudinary(galeria);
-      for (const p of galeria.photos) {
-        try {
-          const ref = await addDoc(collection(getDB(), 'fa_fotos'), {
-            src: p.src, publicId: p.publicId || '',
-            galeriaId: galeria.id, caption: p.caption || '',
-            createdAt: serverTimestamp(),
-          });
-          p.firestoreId = ref.id;
-          p.id = ref.id;
-        } catch (_) {}
+    });
+    galeria.photos.sort((a, b) => b.createdAt - a.createdAt);
+
+    // Si Firestore está vacío, buscar en Cloudinary y migrar automáticamente
+    if (galeria.photos.length === 0 && galeria.cloudinaryTag) {
+      const fotosCloud = await fetchFotosCloudinary(galeria.cloudinaryTag);
+      if (fotosCloud.length > 0) {
+        for (const p of fotosCloud) {
+          try {
+            const ref = await addDoc(collection(getDB(), 'fa_fotos'), {
+              src:       p.src,
+              publicId:  p.publicId,
+              galeriaId: galeria.id,
+              caption:   p.caption,
+              createdAt: serverTimestamp(),
+            });
+            galeria.photos.push({ ...p, firestoreId: ref.id, id: ref.id, createdAt: Date.now() });
+          } catch (_) {
+            // Si falla guardar en Firestore, igual mostrar la foto
+            galeria.photos.push(p);
+          }
+        }
       }
     }
 
@@ -570,11 +578,14 @@ async function cargarFotosDeGaleria(galeria) {
   }
 }
 
-// Lee lista de fotos directamente desde Cloudinary
-async function cargarFotosDesdeCloudinary(galeria) {
-  const url = `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/list/${galeria.cloudinaryTag}.json`;
+// Leer fotos de Cloudinary con timeout de 6 segundos
+async function fetchFotosCloudinary(tag) {
   try {
-    const r = await fetch(url);
+    const url = `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/list/${tag}.json`;
+    const r = await Promise.race([
+      fetch(url),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000))
+    ]);
     if (!r.ok) return [];
     const data = await r.json();
     if (!data.resources?.length) return [];
@@ -584,8 +595,9 @@ async function cargarFotosDesdeCloudinary(galeria) {
       id:          f.public_id.replace(/\//g, '_'),
       publicId:    f.public_id,
       firestoreId: '',
+      createdAt:   0,
     }));
-  } catch (e) {
+  } catch (_) {
     return [];
   }
 }
