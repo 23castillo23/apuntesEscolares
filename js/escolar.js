@@ -514,6 +514,13 @@ function attachGroupEvents() {
       if (!acc) return;
       acc.classList.add('open');
       toggleGrupoOpen(id, true);
+      // Esperar a que el acordeon se expanda y scrollear al contenido
+      setTimeout(() => {
+        const body = acc.querySelector('.group-body');
+        const target = body || acc;
+        const top = target.getBoundingClientRect().top + window.scrollY - 16;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }, 200);
     });
   });
   groupsContainer.querySelectorAll('[data-group-notes]').forEach(btn => {
@@ -629,6 +636,8 @@ async function cargarConteosDeFotos() {
 async function openGaleria(id) {
   currentGaleria = GALERIAS.find(g => g.id === id);
   if (!currentGaleria) return;
+  // Guardar posicion exacta para restaurar al volver
+  window._savedScrollY = window.scrollY;
   galleryTitle.textContent = currentGaleria.icon + '  ' + currentGaleria.name;
   photosGrid.innerHTML = '<p style="color:var(--brown-light);padding:1rem">Cargando fotos…</p>';
   albumsSection.classList.add('hidden');
@@ -640,6 +649,7 @@ async function openGaleria(id) {
 }
 
 function closeGaleria() {
+  const savedY = window._savedScrollY ?? 0;
   albumsSection.classList.remove('hidden');
   gallerySection.classList.remove('visible');
   uploadZone.classList.remove('open');
@@ -647,6 +657,11 @@ function closeGaleria() {
   selectedFiles = [];
   uploadPreviewList.innerHTML = '';
   btnUploadSend.disabled = true;
+  // Restaurar posicion exacta sin animacion
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: savedY, behavior: 'instant' });
+  });
+  window._savedScrollY = null;
 }
 
 /* ════════════════════════════════════════════════════════
