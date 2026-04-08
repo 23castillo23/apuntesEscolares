@@ -537,16 +537,18 @@ function attachGroupEvents() {
    CLOUDINARY — cargar fotos
 ════════════════════════════════════════════════════════ */
 async function cargarFotosDeGaleria(galeria) {
-  const { collection, query, where, getDocs, addDoc, serverTimestamp, doc, updateDoc } = getLib();
-
+  const { collection, query, where, getDocs, doc, updateDoc } = getLib();
   try {
     const q = query(
       collection(getDB(), 'fa_fotos'),
       where('galeriaId', '==', galeria.id)
     );
 
+    // getDocsFromServer fuerza lectura real del servidor ignorando caché local,
+    // evitando que fotos borradas reaparezcan al reabrir el álbum.
+    const fetchFn = getLib().getDocsFromServer || getDocs;
     const snap = await Promise.race([
-      getDocs(q),
+      fetchFn(q),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
     ]);
 
@@ -564,27 +566,6 @@ async function cargarFotosDeGaleria(galeria) {
     });
     galeria.photos.sort((a, b) => b.createdAt - a.createdAt);
 
-    // Si Firestore está vacío, buscar en Cloudinary y migrar automáticamente
-    if (galeria.photos.length === 0 && galeria.cloudinaryTag) {
-      const fotosCloud = await fetchFotosCloudinary(galeria.cloudinaryTag);
-      if (fotosCloud.length > 0) {
-        for (const p of fotosCloud) {
-          try {
-            const ref = await addDoc(collection(getDB(), 'fa_fotos'), {
-              src:       p.src,
-              publicId:  p.publicId,
-              galeriaId: galeria.id,
-              caption:   p.caption,
-              createdAt: serverTimestamp(),
-            });
-            galeria.photos.push({ ...p, firestoreId: ref.id, id: ref.id, createdAt: Date.now() });
-          } catch (_) {
-            // Si falla guardar en Firestore, igual mostrar la foto
-            galeria.photos.push(p);
-          }
-        }
-      }
-    }
 
     // Actualizar portada si no tiene
     if (!galeria.coverImage && galeria.photos.length > 0) {
@@ -597,29 +578,6 @@ async function cargarFotosDeGaleria(galeria) {
   }
 }
 
-// Leer fotos de Cloudinary con timeout de 6 segundos
-async function fetchFotosCloudinary(tag) {
-  try {
-    const url = `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/list/${tag}.json`;
-    const r = await Promise.race([
-      fetch(url),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000))
-    ]);
-    if (!r.ok) return [];
-    const data = await r.json();
-    if (!data.resources?.length) return [];
-    return data.resources.map(f => ({
-      src:         `https://res.cloudinary.com/${CLOUDINARY_CLOUD}/image/upload/v${f.version}/${f.public_id}.${f.format}`,
-      caption:     f.context?.custom?.caption || '',
-      id:          f.public_id.replace(/\//g, '_'),
-      publicId:    f.public_id,
-      firestoreId: '',
-      createdAt:   0,
-    }));
-  } catch (_) {
-    return [];
-  }
-}
 
 async function cargarConteosDeFotos() {
   for (const g of GALERIAS) {
@@ -727,16 +685,15 @@ function renderPhotos() {
 }
 
 /* ════════════════════════════════════════════════════════
-   ELIMINAR FOTO — Cloudinary (vía Netlify) + Firestore
+   ELIMINAR FOTO — Firestore (fuente de verdad)
+   Cloudinary queda con el archivo huérfano (no afecta la app)
 ════════════════════════════════════════════════════════ */
-const DELETE_FUNCTION_URL = 'https://gilded-kataifi-894a8b.netlify.app/.netlify/functions/delete-photo';
-
 async function eliminarFoto(firestoreId, publicId, src) {
   const { doc, deleteDoc, collection, query, where, getDocs } = getLib();
 
-  // 1. Buscar firestoreId por publicId o src si no viene directo
+  // 1. Asegurar que tenemos el firestoreId correcto
   let fid = firestoreId;
-  if (!fid && (publicId || src)) {
+  if (!fid) {
     try {
       let snap = null;
       if (publicId) {
@@ -754,45 +711,33 @@ async function eliminarFoto(firestoreId, publicId, src) {
     }
   }
 
-  // 2. Borrar de Firestore (si encontramos el documento)
-  if (fid) {
-    try {
-      await deleteDoc(doc(getDB(), 'fa_fotos', fid));
-    } catch (err) {
-      console.error('Error al borrar de Firestore:', err);
-      alert('Error al eliminar: ' + err.message);
-      return;
-    }
-  } else {
-    console.warn('No se encontró documento en Firestore para esta foto — se eliminará solo de la vista.');
+  if (!fid) {
+    alert('No se encontró la foto en la base de datos.');
+    return;
   }
 
-  // 3. Borrar de Cloudinary vía Netlify (si hay publicId)
-  if (publicId) {
-    try {
-      await fetch(DELETE_FUNCTION_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publicId }),
-      });
-    } catch (e) {
-      console.warn('No se pudo borrar de Cloudinary (continuando):', e);
-    }
+  // 2. Borrar de Firestore — esta es la única operación que importa
+  try {
+    await deleteDoc(doc(getDB(), 'fa_fotos', fid));
+  } catch (err) {
+    console.error('Error al borrar de Firestore:', err);
+    alert('Error al eliminar: ' + err.message);
+    return;
   }
 
-  // 4. Actualizar estado local — quitar por firestoreId, publicId o src
+  // 3. Actualizar estado local inmediatamente para respuesta visual rápida
   if (currentGaleria?.photos) {
     currentGaleria.photos = currentGaleria.photos.filter(p =>
-      (fid   ? p.firestoreId !== fid     : true) &&
-      (publicId ? p.publicId !== publicId : true) &&
-      (src   ? p.src !== src             : true)
+      p.firestoreId !== fid && p.id !== fid
     );
   }
 
+  // 4. Si era la portada, actualizar portada con la siguiente foto disponible
   if (currentGaleria && currentGaleria.coverImage === src) {
     const siguiente = currentGaleria.photos[0]?.src || '';
     await establecerPortadaMateria(siguiente, true);
   }
+
   renderPhotos();
 }
 

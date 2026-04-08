@@ -224,7 +224,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import {
       initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-      collection, addDoc, query, where, getDocs,
+      collection, addDoc, query, where, getDocs, getDocsFromServer,
       orderBy, onSnapshot, serverTimestamp, doc, setDoc, increment,
       getDoc, deleteDoc, updateDoc, writeBatch
     } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
@@ -247,7 +247,7 @@
 
     window._firestoreDb  = db;
     window._firestoreLib = {
-      collection, addDoc, query, where, getDocs, orderBy,
+      collection, addDoc, query, where, getDocs, getDocsFromServer, orderBy,
       onSnapshot, serverTimestamp, doc, setDoc, increment,
       getDoc, deleteDoc, updateDoc, writeBatch
     };
