@@ -729,25 +729,66 @@ function renderPhotos() {
 /* ════════════════════════════════════════════════════════
    ELIMINAR FOTO — Cloudinary (vía Netlify) + Firestore
 ════════════════════════════════════════════════════════ */
+const DELETE_FUNCTION_URL = 'https://gilded-kataifi-894a8b.netlify.app/.netlify/functions/delete-photo';
+
 async function eliminarFoto(firestoreId, publicId, src) {
-  if (!firestoreId) {
-    alert('No se puede eliminar: ID de foto no encontrado.');
-    return;
+  const { doc, deleteDoc, collection, query, where, getDocs } = getLib();
+
+  // 1. Buscar firestoreId por publicId o src si no viene directo
+  let fid = firestoreId;
+  if (!fid && (publicId || src)) {
+    try {
+      let snap = null;
+      if (publicId) {
+        snap = await getDocs(query(collection(getDB(), 'fa_fotos'), where('publicId', '==', publicId)));
+      }
+      if ((!snap || snap.empty) && src) {
+        snap = await getDocs(query(collection(getDB(), 'fa_fotos'), where('src', '==', src)));
+      }
+      if (snap && !snap.empty) {
+        fid = snap.docs[0].id;
+        if (!publicId) publicId = snap.docs[0].data().publicId || '';
+      }
+    } catch (e) {
+      console.warn('No se pudo buscar firestoreId:', e);
+    }
   }
-  // Borrar metadatos de Firestore
-  // (la foto en Cloudinary queda, se puede limpiar manualmente desde el panel de Cloudinary)
-  const { doc, deleteDoc } = getLib();
-  try {
-    await deleteDoc(doc(getDB(), 'fa_fotos', firestoreId));
-  } catch (err) {
-    console.error('Error al borrar de Firestore:', err);
-    alert('Error al eliminar: ' + err.message);
-    return;
+
+  // 2. Borrar de Firestore (si encontramos el documento)
+  if (fid) {
+    try {
+      await deleteDoc(doc(getDB(), 'fa_fotos', fid));
+    } catch (err) {
+      console.error('Error al borrar de Firestore:', err);
+      alert('Error al eliminar: ' + err.message);
+      return;
+    }
+  } else {
+    console.warn('No se encontró documento en Firestore para esta foto — se eliminará solo de la vista.');
   }
-  // Actualizar estado local
+
+  // 3. Borrar de Cloudinary vía Netlify (si hay publicId)
+  if (publicId) {
+    try {
+      await fetch(DELETE_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publicId }),
+      });
+    } catch (e) {
+      console.warn('No se pudo borrar de Cloudinary (continuando):', e);
+    }
+  }
+
+  // 4. Actualizar estado local — quitar por firestoreId, publicId o src
   if (currentGaleria?.photos) {
-    currentGaleria.photos = currentGaleria.photos.filter(p => p.firestoreId !== firestoreId);
+    currentGaleria.photos = currentGaleria.photos.filter(p =>
+      (fid   ? p.firestoreId !== fid     : true) &&
+      (publicId ? p.publicId !== publicId : true) &&
+      (src   ? p.src !== src             : true)
+    );
   }
+
   if (currentGaleria && currentGaleria.coverImage === src) {
     const siguiente = currentGaleria.photos[0]?.src || '';
     await establecerPortadaMateria(siguiente, true);
